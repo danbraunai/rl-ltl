@@ -1,8 +1,12 @@
+"""
+A textual grid-world environment adapted from the OpenAI gym FrozenLake environment
+https://github.com/openai/gym/blob/master/gym/envs/toy_text/frozen_lake.py.
+"""
 import sys
 from contextlib import closing
+from io import StringIO
 
 import numpy as np
-from io import StringIO
 
 from gym import utils
 from gym.envs.toy_text import discrete
@@ -21,8 +25,11 @@ MAPS = {
 }
 
 
-class FrozenLake2Env(discrete.DiscreteEnv):
+class FrozenLake2(discrete.DiscreteEnv):
     """
+    This environment was adapted from the OpenAI gym FrozenLake environment
+    https://github.com/openai/gym/blob/master/gym/envs/toy_text/frozen_lake.py.
+
     Winter is here. You and your friends were tossing around a frisbee at the
     park when you made a wild throw that left the frisbee out in the middle of
     the lake. The water is mostly frozen, but there are a few holes where the
@@ -51,6 +58,10 @@ class FrozenLake2Env(discrete.DiscreteEnv):
     metadata = {'render.modes': ['human', 'ansi']}
 
     def __init__(self, desc=None, map_name="5x5", slip_factor=0.2):
+        """
+        Setup environment, including saving all possible state-transitions and their
+        probability.
+        """
         if desc is None and map_name is None:
             desc = generate_random_map()
         elif desc is None:
@@ -103,9 +114,9 @@ class FrozenLake2Env(discrete.DiscreteEnv):
                         if letter == b'F':
                             # Take the given action with prob 1-slip_factor
                             P[s][a].append((
-                                1. - slip_factor , *update_probability_matrix(row, col, a)
+                                1. - slip_factor, *update_probability_matrix(row, col, a)
                             ))
-                            # Take a random action with prob slip_factor
+                            # Store all other actions with prob = slip_factor
                             for other_action in [i for i in range(nA) if i != a]:
                                 P[s][a].append((
                                     slip_factor / (nA - 1),
@@ -115,10 +126,10 @@ class FrozenLake2Env(discrete.DiscreteEnv):
                             P[s][a].append((
                                 1., *update_probability_matrix(row, col, a)
                             ))
-
-        super(FrozenLake2Env, self).__init__(nS, nA, P, isd)
+        super(FrozenLake2, self).__init__(nS, nA, P, isd)
 
     def render(self, mode='human'):
+        """Render the game grid."""
         outfile = StringIO() if mode == 'ansi' else sys.stdout
 
         row, col = self.s // self.ncol, self.s % self.ncol
