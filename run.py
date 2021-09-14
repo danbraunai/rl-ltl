@@ -1,4 +1,5 @@
 import time
+import numpy as np
 import gym
 from frozen_lake2 import FrozenLake2
 from stable_baselines3.common.env_util import make_vec_env
@@ -21,7 +22,7 @@ def run_always_down():
 
 def run_a2c():
     env = FrozenLake2(map_name="5x5", slip_factor=0.5)
-    # With gamma<1, agent learns to go DownRight in s3
+    # With gamma<1, agent learns to only go DownRight in s3
     model = A2C('MlpPolicy', env, gamma=0.99, verbose=1)
     model.learn(total_timesteps=10000)
     rollout_model(env, model)
@@ -57,12 +58,18 @@ def run_value_iter(finite=False):
     env.action_space.seed(seed)
 
     if finite:
-        optimal_vals, n_iter = solver.value_iter_finite(env, options["gamma"])
-        print(optimal_vals.reshape((-1, env.nrow, env.ncol)))
+        optimal_vals = solver.value_iter_finite(env, options["gamma"])
+        # Easier to view
+        print(np.swapaxes(optimal_vals, 0, 1).reshape(-1, env.nrow, env.ncol))
+        pol = solver.optimal_policy_finite(env, options["gamma"])
+        for t in pol:
+            print(f"{t+1} steps remaining\n{pol[t]}.")
     else:
         optimal_vals, n_iter = solver.value_iter(env, options["gamma"])
         print(optimal_vals.reshape((env.nrow, env.ncol)))
-    print("Number of iterations:", n_iter)
+        pol = solver.optimal_policy(env, options["gamma"])
+        print(pol)
+        print("Number of iterations:", n_iter)
 
 def run_qlearning():
     seed = 42
@@ -89,7 +96,7 @@ def run_qlearning():
 
 if __name__ == "__main__":
     start = time.time()
-    run_value_iter(finite=True)
+    run_value_iter(finite=False)
     # run_qlearning()
     # run_always_down()
     # run_a2c()

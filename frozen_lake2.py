@@ -12,7 +12,7 @@ from gym import utils
 from gym.envs.toy_text import discrete
 
 
-ACTIONS = ["DOWN", "RIGHT", "DOWNRIGHT"]
+ACTIONS = ["RIGHT", "DOWNRIGHT", "DOWN"]
 
 MAPS = {
     "5x5": [

@@ -5,7 +5,7 @@ gym environment.
 
 import numpy as np
 
-def value_iter(env, gamma, threshold=1e-3):
+def value_iter(env, gamma, threshold=1e-4):
     """
     Runs value iteration until convergence (within specified threshold)
 
@@ -38,26 +38,36 @@ def value_iter(env, gamma, threshold=1e-3):
         n_iter += 1
     return v, n_iter
 
-def value_iter_finite(env, gamma, max_steps=20):
+def optimal_policy(env, gamma, threshold=1e-4):
+    v, _ = value_iter(env, gamma, threshold)
+    pol = {}
+    for s in range(env.nS):
+        q_vals = []
+        for a in range(env.nA):
+            # Weighted sum of expected rewards by taking action a, bootstrapping from
+            # values at the new state
+            q = np.sum([i[0] * (i[2] + gamma * v[i[1]]) for i in env.P[s][a]])
+            q_vals.append(q)
+        pol[s] = list(np.flatnonzero(q_vals == np.max(q_vals)))
+    return pol
+
+
+def value_iter_finite(env, gamma, horizon=20):
     """
-    Runs value iteration for at most max_steps. Ther values for each iteration t are stored, and
+    Runs value iteration for at most horizon steps. The values for each iteration t are stored, and
     represent the expected value of that state given t timesteps remaining in the episode.
 
     Args:
         env: Openai gym environment that contains a transition matrix P which is a dictionary of
             lists, where P[s][a] == [(probability, nextstate, reward, done), ...].
         gamma: Reward discount factor.
-        max_steps: The maximum number of iterations to run. Note that value iteration will also
+        horizon: The maximum number of iterations to run. Note that value iteration will also
             stop if the values for each state don't change between iterations.
     """
-    # A list of numpy arrays representing the expected values at each iteration
-    vs = []
-    # Track the number of passes through all states
-    n_iter = 0
+    # A numpy array representing the expected values for each state and each timestep remaining
+    v = np.zeros((env.observation_space.n, horizon))
 
-    for t in range(max_steps):
-        # Initialise v, the estimated value at each state for this iteration
-        v = np.zeros(env.observation_space.n)
+    for t in range(horizon):
         for s in range(env.nS):
             q_vals = []
             for a in range(env.nA):
@@ -68,13 +78,34 @@ def value_iter_finite(env, gamma, max_steps=20):
                 else:
                     # Weighted sum of expected rewards by taking action a, bootstrapping from
                     # values at the new state from the previous iteration
-                    q = np.sum([i[0] * (i[2] + gamma * vs[-1][i[1]]) for i in env.P[s][a]])
+                    q = np.sum([i[0] * (i[2] + gamma * v[i[1],t-1]) for i in env.P[s][a]])
                 q_vals.append(q)
-            v[s] = np.max(q_vals)
+            v[s,t] = np.max(q_vals)
         # If the values haven't changed from the previous timestep, we are done
-        if t > 0 and np.array_equal(v, vs[-1]):
+        if t > 0 and np.array_equal(v[:,t], v[:,t-1]):
             break
-        vs.append(v)
-        n_iter += 1
-    vs = np.concatenate(vs, axis=0)
-    return vs, n_iter
+    # All state-values after t are irrelevant (they would have been identical if we didn't
+    # break early)
+    return v[:,:t]
+
+def optimal_policy_finite(env, gamma, horizon=20):
+    v = value_iter_finite(env, gamma, horizon)
+    pol = {}
+    for t in range(v.shape[1]):
+        pol[t] = {}
+        for s in range(env.nS):
+            q_vals = []
+            for a in range(env.nA):
+                # If one timestep remaining, don't bootstrap from value of next state at
+                # previous timestep
+                if t == 0:
+                    # Weighted sum of rewards over actions
+                    q = np.sum([i[0] * i[2] for i in env.P[s][a]])
+                else:
+                    # Weighted sum of expected rewards by taking action a, bootstrapping from
+                    # values at the new state from the previous iteration
+                    q = np.sum([i[0] * (i[2] + gamma * v[i[1],t-1]) for i in env.P[s][a]])
+                q_vals.append(q)
+            # Get all actions with max q_vals
+            pol[t][s] = list(np.flatnonzero(q_vals == np.max(q_vals)))
+    return pol
