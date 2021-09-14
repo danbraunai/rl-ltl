@@ -5,7 +5,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import A2C
 
 from agents.qlearning import QLearning
-
+import solver
 
 def run_always_down():
     env = FrozenLake2(map_name="5x5", slip_factor=0.5)
@@ -24,7 +24,6 @@ def run_a2c():
     # With gamma<1, agent learns to go DownRight in s3
     model = A2C('MlpPolicy', env, gamma=0.99, verbose=1)
     model.learn(total_timesteps=10000)
-
     rollout_model(env, model)
 
 def rollout_model(env, model, num_eps=1):
@@ -40,7 +39,32 @@ def rollout_model(env, model, num_eps=1):
                 print("Finished ep")
                 break
 
-def run():
+def run_value_iter(finite=False):
+    seed = 42
+
+    options = {
+        "seed": seed,
+        "lr": 0.5,
+        "gamma": 1,
+        "epsilon": 0.1,
+        "n_episodes": 1000,
+        "n_rollout_steps": 100,
+    }
+
+    env = FrozenLake2(map_name="5x5", slip_factor=0.5)
+    # Set for reproducibility
+    env.seed(seed)
+    env.action_space.seed(seed)
+
+    if finite:
+        optimal_vals, n_iter = solver.value_iter_finite(env, options["gamma"])
+        print(optimal_vals.reshape((-1, env.nrow, env.ncol)))
+    else:
+        optimal_vals, n_iter = solver.value_iter(env, options["gamma"])
+        print(optimal_vals.reshape((env.nrow, env.ncol)))
+    print("Number of iterations:", n_iter)
+
+def run_qlearning():
     seed = 42
 
     options = {
@@ -65,7 +89,8 @@ def run():
 
 if __name__ == "__main__":
     start = time.time()
-    run()
+    run_value_iter(finite=True)
+    # run_qlearning()
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)

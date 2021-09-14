@@ -6,7 +6,7 @@ import numpy as np
 from stable_baselines3.common.utils import set_random_seed
 
 class QLearning:
-
+    """Initialise QLearning model, setting all learning params"""
     def __init__(self,
                  env,
                  seed=None,
@@ -25,7 +25,7 @@ class QLearning:
         self.epsilon = epsilon
         self.n_episodes = n_episodes
         self.n_rollout_steps = n_rollout_steps
-        # Initialise q-values
+        # Initialise q-values to zero
         self.q = np.zeros([self.env.observation_space.n, self.env.action_space.n])
 
     def learn(self):
