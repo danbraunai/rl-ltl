@@ -26,47 +26,40 @@ class QLearning:
         self.n_episodes = n_episodes
         self.n_rollout_steps = n_rollout_steps
         # Initialise q-values to zero
-        self.q = np.zeros([self.env.observation_space.n, self.env.action_space.n])
+        self.q = np.zeros((self.env.observation_space.n, self.env.action_space.n))
 
     def learn(self):
         """Run qlearning, updating self.q after each step."""
         for _ in range(self.n_episodes):
-            state = self.env.reset()
+            s = self.env.reset()
             for _ in range(self.n_rollout_steps):
                 # Get epsilon-greedy action
-                action, _ = self.predict(state, deterministic=False)
-
-                if random.random() < self.epsilon:
-                    action = self.env.action_space.sample()
-                else:
-                    # Randomly select among best actions
-                    action = random.choice(np.flatnonzero(self.q[state] == np.max(self.q[state])))
-
-                new_state, reward, done, _ = self.env.step(action)
-
+                a, _ = self.predict(s, deterministic=False)
+                # Take step in envrionment
+                new_s, rew, done, _ = self.env.step(a)
                 # Update q-vals
                 # If done, don't bother calculating the q-value of the new state (they will be 0)
                 if done:
-                    td_err = reward - self.q[state][action]
+                    td_err = rew - self.q[s, a]
                 else:
-                    td_err = reward + self.gamma * np.max(self.q[new_state]) - self.q[state][action]
+                    td_err = rew + self.gamma * np.max(self.q[new_s]) - self.q[s, a]
 
-                self.q[state][action] += self.lr * td_err
+                self.q[s, a] += self.lr * td_err
 
-                state = new_state
+                s = new_s
                 if done:
                     break
 
-    def predict(self, state, deterministic=False):
+    def predict(self, s, deterministic=False):
         """
         Select an action, using epsilon-greedy when deterministic=False, and selecting an action
         with the max q-value for state otherwise.
         """
         if not deterministic and (random.random() < self.epsilon):
-            action = self.env.action_space.sample()
+            a = self.env.action_space.sample()
         else:
             # Randomly select among best actions based on q-values
-            action = random.choice(np.flatnonzero(self.q[state] == np.max(self.q[state])))
+            a = random.choice(np.flatnonzero(self.q[s] == np.max(self.q[s])))
 
         # stable-baselines3 returns an action and a model state for recurrent models.
-        return action, None
+        return a, None
