@@ -61,6 +61,11 @@ class FrozenLake2(discrete.DiscreteEnv):
         """
         Setup environment, including saving all possible state-transitions and their
         probability.
+
+        Args:
+            desc: List of strings representing the environment.
+            map_name: String corresponding to a key in MAPS
+            slip_factor: Agent takes a random action with prob slip_factor.
         """
         if desc is None and map_name is None:
             desc = generate_random_map()
@@ -73,6 +78,7 @@ class FrozenLake2(discrete.DiscreteEnv):
         nA = 3
         nS = nrow * ncol
 
+        # Assign uniform distribution over initial states (those encoded by "S" in desc)
         isd = np.array(desc == b'S').astype('float64').ravel()
         isd /= isd.sum()
 
@@ -112,14 +118,15 @@ class FrozenLake2(discrete.DiscreteEnv):
                     else:
                         # If on a slippery frozen square, take a random action with prob slip_factor
                         if letter == b'F':
-                            # Take the given action with prob 1-slip_factor
+                            # Store the given action with prob 1-slip_factor + slip_factor/nA
                             P[s][a].append((
-                                1. - slip_factor, *update_probability_matrix(row, col, a)
+                                1. - slip_factor + slip_factor / nA,
+                                *update_probability_matrix(row, col, a)
                             ))
-                            # Store all other actions with prob = slip_factor
+                            # Store all other actions with prob slip_factor / nA
                             for other_action in [i for i in range(nA) if i != a]:
                                 P[s][a].append((
-                                    slip_factor / (nA - 1),
+                                    slip_factor / nA,
                                     *update_probability_matrix(row, col, other_action)
                                 ))
                         else:
