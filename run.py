@@ -109,8 +109,8 @@ def run_qtlearning():
         "lr": 0.5,
         "gamma": 1,
         "epsilon": 0.1,
-        "n_episodes": 50000,
-        "horizon": 6,
+        "n_episodes": 20000,
+        "horizon": 10,
     }
 
     env = FrozenLake2(map_name="5x5", slip_factor=0.5)
@@ -119,18 +119,17 @@ def run_qtlearning():
     env.action_space.seed(seed)
 
     qtl = QTLearning(env, **options)
-    qtl.learn()
+    qtl.learn(plain=False)
     # Show q-values for one timestep remaining
     print(qtl.q[:, :, 0])
     rollout_model(env, qtl, num_eps=1, horizon=4)
 
 
-
 if __name__ == "__main__":
     start = time.time()
     # run_value_iter(finite=False)
-    run_qlearning()
-    # run_qtlearning()
+    # run_qlearning()
+    run_qtlearning()
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)

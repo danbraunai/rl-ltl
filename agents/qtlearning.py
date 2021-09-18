@@ -31,8 +31,15 @@ class QTLearning:
             (self.env.observation_space.n, self.env.action_space.n, self.horizon)
         )
 
-    def learn(self):
-        """Run qlearning, updating self.q for each timestep."""
+    def learn(self, plain=False):
+        """
+        Run qlearning, updating self.q for each timestep.
+
+        ARGS:
+            plain: Boolean, true when we only update q-vals for a single timestep at each
+                environment step, false when we update q-vals for all timesteps on each step.
+        """
+        nA = self.env.action_space.n
         for _ in range(self.n_episodes):
             s = self.env.reset()
             for step in range(self.horizon):
@@ -43,14 +50,31 @@ class QTLearning:
                 a, _ = self.predict((s, t), deterministic=False)
                 # Take step in envrionment
                 new_s, rew, done, _ = self.env.step(a)
-                # Update q-vals
-                # If done, don't bother calculating the q-value of the new state (they will be 0)
-                if done or t == 0:
-                    td_err = rew - self.q[s, a, t]
-                else:
-                    td_err = rew + self.gamma * np.max(self.q[new_s, :, t-1]) - self.q[s, a, t]
+                if plain:
+                    # Update q-vals
+                    # If done, don't bother calculating the q-value of the new state (they will be 0)
+                    if done or t == 0:
+                        td_err = rew - self.q[s, a, t]
+                    else:
+                        td_err = rew + self.gamma * np.max(self.q[new_s, :, t-1]) - self.q[s, a, t]
 
-                self.q[s, a, t] += self.lr * td_err
+                    self.q[s, a, t] += self.lr * td_err
+                else:
+                    #### Loop method
+                    for t_rem in range(self.horizon):
+                        if done or t_rem == 0:
+                            td_err = rew - self.q[s, a, t_rem]
+                        else:
+                            td_err = (
+                                rew + self.gamma * np.max(self.q[new_s, :, t_rem-1])
+                                - self.q[s, a, t_rem]
+                            )
+                        self.q[s, a, t_rem] += self.lr * td_err
+                    #### TODO: Vectorised method
+                    # Get the q array for the new_s with timestep shifted down one
+                    # q_new_s_shifted = np.concatenate((np.full((1, nA), 0), self.q[new_s, :, :-1]))
+                    # print(self.q[new_s, :, :])
+                    # print(q_new_s_shifted)
 
                 s = new_s
                 if done:
