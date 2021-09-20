@@ -1,7 +1,7 @@
 import time
 import numpy as np
 import gym
-from frozen_lake2 import FrozenLake2
+from envs.frozen_lake import FrozenLake
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import A2C
 
@@ -11,7 +11,7 @@ import solver
 
 
 def run_always_down():
-    env = FrozenLake2(map_name="5x5", slip_factor=0.5)
+    env = FrozenLake(map_name="5x5", slip=0.5)
     go_down = 0
     n_rollout_steps = 20
     for step in range(n_rollout_steps):
@@ -23,7 +23,7 @@ def run_always_down():
             break
 
 def run_a2c():
-    env = FrozenLake2(map_name="5x5", slip_factor=0.5)
+    env = FrozenLake(map_name="5x5", slip=0.5)
     # With gamma<1, agent learns to only go DownRight in s3
     model = A2C('MlpPolicy', env, gamma=0.99, verbose=1)
     model.learn(total_timesteps=10000)
@@ -60,7 +60,7 @@ def run_value_iter(finite=False):
         "n_rollout_steps": 100,
     }
 
-    env = FrozenLake2(map_name="5x5", slip_factor=0.5)
+    env = FrozenLake(map_name="5x5", slip=0.5)
     # Set for reproducibility
     env.seed(seed)
     env.action_space.seed(seed)
@@ -87,11 +87,12 @@ def run_qlearning(qt=False):
         "lr": 0.5,
         "gamma": 1,
         "epsilon": 0.1,
-        "n_episodes": 50000,
+        "n_episodes": 10000,
         "n_rollout_steps": 100,
     }
 
-    env = FrozenLake2(map_name="5x5", slip_factor=0.5)
+    env = FrozenLake(map_name="5x5", slip=0.5)
+    # env = gym.make("FrozenLake-v1", slip=0.5)
     # Set for reproducibility
     env.seed(seed)
     env.action_space.seed(seed)
@@ -113,7 +114,7 @@ def run_qtlearning():
         "horizon": 10,
     }
 
-    env = FrozenLake2(map_name="5x5", slip_factor=0.5)
+    env = FrozenLake(map_name="5x5", slip=0.5)
     # Set for reproducibility
     env.seed(seed)
     env.action_space.seed(seed)
@@ -128,8 +129,8 @@ def run_qtlearning():
 if __name__ == "__main__":
     start = time.time()
     # run_value_iter(finite=False)
-    # run_qlearning()
-    run_qtlearning()
+    run_qlearning()
+    # run_qtlearning()
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)
