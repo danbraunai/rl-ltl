@@ -1,13 +1,14 @@
 import time
 import numpy as np
 import gym
-from envs.frozen_lake import FrozenLake
+from envs.frozen_lake import FrozenLakeRMEnv
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import A2C
 
 from agents.qlearning import QLearning
 from agents.qtlearning import QTLearning
 import solver
+from reward_machines.rm_environment import RewardMachineEnv, RewardMachineWrapper
 
 
 def run_always_down():
@@ -31,17 +32,22 @@ def run_a2c():
 
 def rollout_model(env, model, num_eps=1, horizon=1e7):
     for ep in range(num_eps):
-        s = env.reset()
+        s = tuple(env.reset())
+        print(s)
         env.render()
         t = 0
-        while True:
+        for _ in range(20):
+            # If no q-values for this state, add them
+            if s not in model.q:
+                print("No q-vals for:", s)
+                model.q[s] = np.zeros(model.env.action_space.n)
             if horizon:
                 a, _ = model.predict((s, t), deterministic=True)
             else:
                 a, _ = model.predict(s, deterministic=True)
             new_s, reward, done, info = env.step(a)
             env.render()
-            s = new_s
+            s = tuple(new_s)
 
             t += 1
             if done or t == horizon:
@@ -49,7 +55,7 @@ def rollout_model(env, model, num_eps=1, horizon=1e7):
                 break
 
 def run_value_iter(finite=False):
-    seed = 42
+    seed = 41
 
     options = {
         "seed": seed,
@@ -87,15 +93,12 @@ def run_qlearning(qt=False):
         "lr": 0.5,
         "gamma": 1,
         "epsilon": 0.1,
-        "n_episodes": 10000,
+        "n_episodes": 2000,
         "n_rollout_steps": 100,
     }
 
-    env = FrozenLake(map_name="5x5", slip=0.5)
-    # env = gym.make("FrozenLake-v1", slip=0.5)
-    # Set for reproducibility
-    env.seed(seed)
-    env.action_space.seed(seed)
+    env = FrozenLake(map_name="5x5", slip=0.5, seed=42)
+    # env = gym.make("FrozenLake-v1", slip=0.5, seed=seed)
 
     ql = QLearning(env, **options)
     ql.learn()
@@ -114,22 +117,53 @@ def run_qtlearning():
         "horizon": 10,
     }
 
-    env = FrozenLake(map_name="5x5", slip=0.5)
-    # Set for reproducibility
-    env.seed(seed)
-    env.action_space.seed(seed)
+    env = FrozenLake(map_name="5x5", slip=0.5, seed=seed)
 
     qtl = QTLearning(env, **options)
     qtl.learn(plain=False)
     # Show q-values for one timestep remaining
     print(qtl.q[:, :, 0])
-    rollout_model(env, qtl, num_eps=1, horizon=4)
+    rollout_model(env, qtl, num_eps=1, horizon=7)
+
+def run_rm():
+    # TODO: Fix seed bug - giving same results for each non-None seed
+    seed = 42
+
+    options = {
+        "seed": None,
+        "lr": 0.5,
+        "gamma": 0.9,
+        "epsilon": 0.1,
+        "n_episodes": 5000,
+        "n_rollout_steps": 100,
+        "use_crm": True,
+        "use_rs": False,
+    }
+
+    rm_env = FrozenLakeRMEnv(map_name="5x5", slip=0.5)
+    # rm_env = RewardMachineWrapper(rm_env, args.use_crm, args.use_rs, args.gamma, args.rs_gamma)
+    rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
+    # rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], 0.9, 0.9)
+    rm_env.seed(options["seed"])
+
+    ql = QLearning(rm_env, **options)
+    ql.learn()
+
+    qs = {}
+    for k in ql.q:
+        qs["".join(str(i) for i in k)] = ql.q[k].tolist()
+    import json
+    with open("qs.json", "w") as f:
+        json.dump(qs, f, indent=4)
+
+    rollout_model(rm_env, ql, num_eps=1, horizon=None)
 
 
 if __name__ == "__main__":
     start = time.time()
     # run_value_iter(finite=False)
-    run_qlearning()
+    # run_qlearning()
+    run_rm()
     # run_qtlearning()
     # run_always_down()
     # run_a2c()
