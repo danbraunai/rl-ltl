@@ -35,8 +35,8 @@ MAPS = {
             "HHHHP",
         ],
         "objects_v0": {
-            (0,4): ["r"],
-            (4,4): ["f"],
+            (0,4): "r",
+            (4,4): "f",
         },
     },
 }
@@ -70,8 +70,9 @@ class FrozenLake(Env):
     H : hole, fall to your doom
 
     The rope and your friend are objects referenced by zero-indexed grid locations.
-    E.g. an object entry of (1,1): ["r"] means that a rope is on the second row and column,
-    and (2,3): ["f"] means that a friend is at the thrid row and forth column.
+    E.g. an object entry of (1,1): "r" means that a rope is on the second row and column,
+    (2,3): "f" means that a friend is at the thrid row and forth column, and
+    (2,3): "f&r" means that both the rope and a friend are at the thrid row and forth column.
 
     The episode ends when you pull your friend out of the hole with the rope or fall in a hole.
     You receive a reward of 1 if you succeed, and zero otherwise.
@@ -101,24 +102,15 @@ class FrozenLake(Env):
         self.nA = len(ACTIONS)
         self.nS = self.nrow * self.ncol
 
-        # Assign uniform distribution over initial states (those encoded by "S" in desc)
-        # self.isd = np.array(self.desc == b'S').astype('float64').ravel()
-        # self.isd /= self.isd.sum()
         # Current positions of agent
         self.s = tuple(np.argwhere(self.desc == b'S')[0])
         self.action_space = spaces.Discrete(self.nA)
-        # self.observation_space = spaces.Discrete(self.nS)
         self.observation_space = spaces.Box(
             low=0, high=max([self.nrow, self.ncol]), shape=(2,), dtype=np.uint8
         )
 
         self.seed(seed)
-        # The integer index representing the state of the agent
-        # self.s = categorical_sample(self.isd, self.np_random)
         self.P = self.get_transitions()
-
-        self.s = (1,1)
-        self.step(1)
 
     def _get_new_position(self, row, col, a):
         if ACTIONS[a] == "DOWN":
@@ -138,53 +130,52 @@ class FrozenLake(Env):
 
     def _update_probability_matrix(self, row, col, action):
         newrow, newcol = self._get_new_position(row, col, action)
-        # newstate = self._to_s(newrow, newcol)
         newletter = self.desc[newrow, newcol]
         # Env only "done" when fall down hole, other done statuses are handled by reward machine
         done = bytes(newletter) in b'H'
-        # reward = float(newletter == b'G')
         # All rewards come from reward machine
         reward = 0
-        # return newstate, reward, done
         return (newrow, newcol), reward, done
+
+    def get_label(self, state):
+        try:
+            label = self.objects[state]
+        except KeyError:
+            label = ""
+        return label
 
     def get_transitions(self):
         """
         Stores the possible transitions after taking an action in a state.
         Returns:
-            P: Dict of the form P[state][action] == [(probability, nextstate, reward, done), ...],
-            where state and nextstate are of the form (row,col).
+            P: Dict. P[state][action] == [(probability, nextstate, reward, done, label), ...],
+            where state and nextstate are of the form (row, col).
         """
 
         P = {}
         for row in range(self.nrow):
             for col in range(self.ncol):
-                P[(row,col)] = {a: [] for a in range(self.nA)}
-                # s = self._to_s(row, col)
+                P[(row, col)] = {a: [] for a in range(self.nA)}
                 for a in range(self.nA):
                     letter = self.desc[row, col]
-                    # If fallen in hole, loop transition to the same state
-                    # if letter in b'GH':
                     if letter in b'H':
-                        P[(row,col)][a].append((1.0, (row,col), 0, True))
-                    else:
+                        # If fallen in hole, loop transition to the same state
+                        P[(row, col)][a].append((1.0, (row, col), 0, True))
+                    elif letter == b'I':
                         # If on a slippery frozen square, take a random action with prob slip
-                        if letter == b'I':
-                            # Store the given action with prob 1-slip + slip/self.nA
-                            P[(row,col)][a].append((
-                                1. - self.slip + self.slip / self.nA,
-                                *self._update_probability_matrix(row, col, a)
+                        # Store the given action with prob 1-slip + slip/self.nA
+                        P[(row, col)][a].append((
+                            1. - self.slip + self.slip / self.nA,
+                            *self._update_probability_matrix(row, col, a)
+                        ))
+                        # Store all other actions with prob slip / self.nA
+                        for other_action in [i for i in range(self.nA) if i != a]:
+                            P[(row, col)][a].append((
+                                self.slip / self.nA,
+                                *self._update_probability_matrix(row, col, other_action)
                             ))
-                            # Store all other actions with prob slip / self.nA
-                            for other_action in [i for i in range(self.nA) if i != a]:
-                                P[(row,col)][a].append((
-                                    self.slip / self.nA,
-                                    *self._update_probability_matrix(row, col, other_action)
-                                ))
-                        else:
-                            P[(row,col)][a].append((
-                                1., *self._update_probability_matrix(row, col, a)
-                            ))
+                    else:
+                        P[(row, col)][a].append((1., *self._update_probability_matrix(row, col, a)))
         return P
 
     def seed(self, seed=None):
@@ -193,10 +184,8 @@ class FrozenLake(Env):
         return [seed]
 
     def reset(self):
-        # self.s = categorical_sample(self.isd, self.np_random)
         self.s = tuple(np.argwhere(self.desc == b'S')[0])
         self.lastaction = None
-        # return int(self.s)
         return self.s
 
     def step(self, a):
@@ -211,17 +200,12 @@ class FrozenLake(Env):
         """
         Returns the string with the propositions that are True in this state
         """
-        ret = ""
-        if self.s in self.objects:
-            ret += "&".join(self.objects[self.s])
-        return ret
-
-    def get_features(self):
-        """
-        Returns the features of the current state (i.e., the location of the agent)
-        """
-        x,y = self.agent
-        return np.array([x,y])
+        try:
+            props = self.objects[self.s]
+        except KeyError:
+            # No object in this position
+            props = ""
+        return props
 
     def render(self, mode='human'):
         """Render the game grid."""
@@ -249,44 +233,10 @@ class FrozenLakeRMEnv(RewardMachineEnv):
         rm_files = ["./envs/rm1_frozen_lake.txt"]
         super().__init__(env, rm_files)
 
-    # def render(self, mode='human'):
-    #     if mode == 'human':
-    #         # commands
-    #         str_to_action = {"w":0,"d":1,"s":2,"a":3}
-
-    #         # play the game!
-    #         done = True
-    #         while True:
-    #             if done:
-    #                 print("New episode --------------------------------")
-    #                 obs = self.reset()
-    #                 print("Current task:", self.rm_files[self.current_rm_id])
-    #                 self.env.show()
-    #                 print("Features:", obs)
-    #                 print("RM state:", self.current_u_id)
-    #                 print("Events:", self.env.get_events())
-
-    #             print("\nAction? (WASD keys or q to quite) ", end="")
-    #             a = input()
-    #             print()
-    #             if a == 'q':
-    #                 break
-    #             # Executing action
-    #             if a in str_to_action:
-    #                 obs, rew, done, _ = self.step(str_to_action[a])
-    #                 self.env.show()
-    #                 print("Features:", obs)
-    #                 print("Reward:", rew)
-    #                 print("RM state:", self.current_u_id)
-    #                 print("Events:", self.env.get_events())
-    #             else:
-    #                 print("Forbidden action")
-    #     else:
-    #         raise NotImplementedError
-
     def test_optimal_policies(self, num_episodes, epsilon, gamma):
         """
-        This code computes optimal policies for each reward machine and evaluates them using epsilon-greedy exploration
+        This code computes optimal policies for each reward machine and evaluates them using
+        epsilon-greedy exploration.
 
         PARAMS
         ----------
@@ -298,28 +248,29 @@ class FrozenLakeRMEnv(RewardMachineEnv):
         ----------
         List with the optimal average-reward-per-step per reward machine
         """
-        S,A,L,T = self.env.get_model()
-        print("\nComputing optimal policies... ", end='', flush=True)
-        optimal_policies = [value_iteration(S,A,L,T,rm,gamma) for rm in self.reward_machines]
-        print("Done!")
-        optimal_ARPS = [[] for _ in range(len(optimal_policies))]
-        print("\nEvaluating optimal policies.")
-        for ep in range(num_episodes):
-            if ep % 1000 == 0 and ep > 0:
-                print("%d/%d"%(ep,num_episodes))
-            self.reset()
-            s = tuple(self.obs)
-            u = self.current_u_id
-            rm_id = self.current_rm_id
-            rewards = []
-            done = False
-            while not done:
-                a = random.choice(A) if random.random() < epsilon else optimal_policies[rm_id][(s,u)]
-                _, r, done, _ = self.step(a)
-                rewards.append(r)
-                s = tuple(self.obs)
-                u = self.current_u_id
-            optimal_ARPS[rm_id].append(sum(rewards)/len(rewards))
-        print("Done!\n")
+        raise NotImplementedError()
+        # S,A,L,T = self.env.get_model()
+        # print("\nComputing optimal policies... ", end='', flush=True)
+        # optimal_policies = [value_iteration(S,A,L,T,rm,gamma) for rm in self.reward_machines]
+        # print("Done!")
+        # optimal_ARPS = [[] for _ in range(len(optimal_policies))]
+        # print("\nEvaluating optimal policies.")
+        # for ep in range(num_episodes):
+        #     if ep % 1000 == 0 and ep > 0:
+        #         print("%d/%d"%(ep,num_episodes))
+        #     self.reset()
+        #     s = tuple(self.obs)
+        #     u = self.current_u_id
+        #     rm_id = self.current_rm_id
+        #     rewards = []
+        #     done = False
+        #     while not done:
+        #         a = random.choice(A) if random.random() < epsilon else optimal_policies[rm_id][(s,u)]
+        #         _, r, done, _ = self.step(a)
+        #         rewards.append(r)
+        #         s = tuple(self.obs)
+        #         u = self.current_u_id
+        #     optimal_ARPS[rm_id].append(sum(rewards)/len(rewards))
+        # print("Done!\n")
 
-        return [sum(arps)/len(arps) for arps in optimal_ARPS]
+        # return [sum(arps)/len(arps) for arps in optimal_ARPS]

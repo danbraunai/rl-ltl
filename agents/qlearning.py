@@ -3,7 +3,7 @@ Q-Learning implementation.
 """
 import random
 import numpy as np
-from stable_baselines3.common.utils import set_random_seed
+from utils import set_random_seed
 
 class QLearning:
     """Initialise QLearning model, setting all learning params"""
@@ -34,7 +34,10 @@ class QLearning:
         self.q = {}
 
     def learn(self):
-        """Run qlearning, updating self.q after each step."""
+        """
+        Run qlearning, updating self.q after each step. Adapted from
+        https://github.com/RodrigoToroIcarte/reward_machines.
+        """
         reward_total = 0
         step = 0
         num_episodes = 0
@@ -52,17 +55,18 @@ class QLearning:
                 # Updating the q-values
                 experiences = []
                 if self.use_crm:
-                    # Adding counterfactual experience (this will alrady include shaped rewards if use_rs=True)
-                    for _s,_a,_r,_sn,_done in info["crm-experience"]:
-                        experiences.append((tuple(_s),_a,_r,tuple(_sn),_done))
+                    # Adding counterfactual experience (this will alrady include shaped rewards
+                    # if use_rs=True)
+                    for _s, _a, _r, _sn, _done in info["crm-experience"]:
+                        experiences.append((tuple(_s), _a, _r, tuple(_sn), _done))
                 elif self.use_rs:
                     # Include only the current experince but shape the reward
-                    experiences = [(s,a,info["rs-reward"],sn,done)]
+                    experiences = [(s, a, info["rs-reward"], sn, done)]
                 else:
                     # Include only the current experience (standard q-learning)
-                    experiences = [(s,a,r,sn,done)]
+                    experiences = [(s, a, r, sn, done)]
 
-                for _s,_a,_r,_sn,_done in experiences:
+                for _s, _a, _r, _sn, _done in experiences:
                     # if _s not in Q: Q[_s] = dict([(b,q_init) for b in actions])
                     if _s not in self.q:
                         self.q[_s] = np.zeros(self.env.action_space.n)
@@ -71,7 +75,7 @@ class QLearning:
                     if _done:
                         _delta = _r - self.q[_s][_a]
                     else:
-                        # _delta = _r + self.gamma * get_qmax(Q,_sn,actions,q_init) - Q[_s][_a]
+                        # _delta = _r + self.gamma * get_qmax(Q, _sn,actions,q_init) - Q[_s][_a]
                         _delta = _r + self.gamma * np.max(self.q[_sn]) - self.q[_s][_a]
                     self.q[_s][_a] += self.lr * _delta
 
