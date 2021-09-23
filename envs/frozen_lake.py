@@ -35,7 +35,10 @@ MAPS = {
             "HHHHP",
         ],
         "objects_v0": {
-            (0,4): "r",
+            (4,4): "f",
+        },
+        "objects_v1": {
+            (2,2): "r",
             (4,4): "f",
         },
     },
@@ -228,9 +231,8 @@ class FrozenLake(Env):
 
 
 class FrozenLakeRMEnv(RewardMachineEnv):
-    def __init__(self, **kwargs):
+    def __init__(self, rm_files, **kwargs):
         env = FrozenLake(**kwargs)
-        rm_files = ["./envs/rm1_frozen_lake.txt"]
         super().__init__(env, rm_files)
 
     def test_optimal_policies(self, num_episodes, epsilon, gamma):

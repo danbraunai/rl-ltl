@@ -56,7 +56,9 @@ def rollout_model(env, model, num_eps=1, horizon=1e7):
 
 def run_value_iteration(finite=False):
     seed = 41
-
+    rm_file = "./envs/rm0_frozen_lake.txt"
+    map_name = "5x5"
+    obj_name = "objects_v0"
     options = {
         "seed": seed,
         "lr": 0.5,
@@ -68,7 +70,9 @@ def run_value_iteration(finite=False):
         "use_rs": False,
     }
 
-    rm_env = FrozenLakeRMEnv(map_name="5x5", slip=0.5, seed=options["seed"])
+    rm_env = FrozenLakeRMEnv(
+        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"]
+    )
     # rm_env = RewardMachineWrapper(rm_env, args.use_crm, args.use_rs, args.gamma, args.rs_gamma)
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
     # Only one reward machine for these experiments
@@ -89,7 +93,9 @@ def run_value_iteration(finite=False):
 
 def run_qlearning():
     seed = 32
-
+    rm_file = "./envs/rm1_frozen_lake.txt"
+    map_name = "5x5"
+    obj_name = "objects_v0"
     options = {
         "seed": seed,
         "lr": 0.5,
@@ -101,7 +107,9 @@ def run_qlearning():
         "use_rs": False,
     }
 
-    rm_env = FrozenLakeRMEnv(map_name="5x5", slip=0.5, seed=options["seed"])
+    rm_env = FrozenLakeRMEnv(
+        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"]
+    )
     # rm_env = RewardMachineWrapper(rm_env, args.use_crm, args.use_rs, args.gamma, args.rs_gamma)
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
     ql = QLearning(rm_env, **options)
