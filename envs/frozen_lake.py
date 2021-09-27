@@ -23,6 +23,7 @@ def categorical_sample(prob_n, np_random):
     return (csprob_n > np_random.rand()).argmax()
 
 ACTIONS = ["RIGHT", "DOWNRIGHT", "DOWN"]
+ACTIONS_ALL = ["RIGHT", "DOWNRIGHT", "DOWN", "DOWNLEFT", "LEFT", "UPLEFT", "UP", "UPRIGHT"]
 
 # Predefined maps and objects
 MAPS = {
@@ -35,11 +36,15 @@ MAPS = {
             "HHHHP",
         ],
         "objects_v0": {
-            (4,4): "f",
+            (4, 4): "f",
         },
         "objects_v1": {
-            (0,2): "r",
-            (4,4): "f",
+            (0, 2): "r",
+            (4, 4): "f",
+        },
+        "objects_v2": {
+            (2, 4): "r",
+            (3, 0): "f",
         },
     },
 }
@@ -83,7 +88,7 @@ class FrozenLake(Env):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, map_name="5x5", obj_name="objects_v0", slip=0.2, seed=None):
+    def __init__(self, map_name="5x5", obj_name="objects_v0", slip=0.2, seed=None, all_acts=False):
         """
         Setup environment, including saving all possible state-transitions and their
         probability.
@@ -92,17 +97,19 @@ class FrozenLake(Env):
             map_name: String corresponding to a key in MAPS to obtain the surface.
             obj_name: String corresponding to a key in MAPS[map_name] to obtain the objects.
             slip: Agent takes a random action with prob slip.
+            seed: Seed the RNG for reproducability.
+            all_acts: Use ACTIONS_ALL if True, otherwise use ACTIONS.
         """
         self.desc = np.asarray(MAPS[map_name]["env"], dtype='c')
         self.nrow, self.ncol = self.desc.shape
         # TODO: allow random generation of objects
-        # self.objects = {self._to_s(*k): v for k, v in MAPS[map_name][obj_name].items()}
         self.objects = MAPS[map_name][obj_name]
         self.slip = slip
+        self.actions = ACTIONS_ALL if all_acts else ACTIONS
 
         # For rendering
         self.lastaction = None
-        self.nA = len(ACTIONS)
+        self.nA = len(self.actions)
         self.nS = self.nrow * self.ncol
 
         # Current positions of agent
@@ -116,15 +123,34 @@ class FrozenLake(Env):
         self.P = self.get_transitions()
 
     def _get_new_position(self, row, col, a):
-        if ACTIONS[a] == "DOWN":
-            row = min(row + 1, self.nrow - 1)
-        elif ACTIONS[a] == "RIGHT":
+        if self.actions[a] == "RIGHT":
             col = min(col + 1, self.ncol - 1)
-        elif ACTIONS[a] == "DOWNRIGHT":
+        elif self.actions[a] == "DOWNRIGHT":
             # Don't move if we are in the last row or column
             if row != self.nrow -1 and col != self.ncol - 1:
-                row = min(row + 1, self.nrow - 1)
-                col = min(col + 1, self.ncol - 1)
+                row += 1
+                col += 1
+        elif self.actions[a] == "DOWN":
+            row = min(row + 1, self.nrow - 1)
+        elif self.actions[a] == "DOWNLEFT":
+            # Don't move if we are in the last row or first column
+            if row != self.nrow -1 and col != 0:
+                row += 1
+                col -= 1
+        elif self.actions[a] == "LEFT":
+            col = max(col - 1, 0)
+        elif self.actions[a] == "UPLEFT":
+            # Don't move if we are in the first row or first column
+            if row != 0 and col != 0:
+                row -= 1
+                col -= 1
+        elif self.actions[a] == "UP":
+            row = max(row - 1, 0)
+        elif self.actions[a] == "UPRIGHT":
+            # Don't move if we are in the first row or last column
+            if row != 0 and col != self.ncol - 1:
+                row -= 1
+                col += 1
         return (row, col)
 
     def _to_s(self, row, col):
@@ -136,7 +162,6 @@ class FrozenLake(Env):
         newletter = self.desc[newrow, newcol]
         # Env only "done" when fall down hole, other done statuses are handled by reward machine
         done = (bytes(newletter) in b'H') or (newrow, newcol) == (self.nrow - 1, self.ncol - 1)
-
         # All rewards come from reward machine
         reward = 0
         return (newrow, newcol), reward, done
@@ -223,7 +248,7 @@ class FrozenLake(Env):
         desc = [[c.decode('utf-8') for c in line] for line in desc]
         desc[row][col] = utils.colorize(desc[row][col], "red", highlight=True)
         if self.lastaction is not None:
-            outfile.write("  ({})\n".format(ACTIONS[self.lastaction]))
+            outfile.write("  ({})\n".format(self.actions[self.lastaction]))
         else:
             outfile.write("\n")
         outfile.write("\n".join(''.join(line) for line in desc)+"\n")
@@ -237,45 +262,3 @@ class FrozenLakeRMEnv(RewardMachineEnv):
     def __init__(self, rm_files, **kwargs):
         env = FrozenLake(**kwargs)
         super().__init__(env, rm_files)
-
-    def test_optimal_policies(self, num_episodes, epsilon, gamma):
-        """
-        This code computes optimal policies for each reward machine and evaluates them using
-        epsilon-greedy exploration.
-
-        PARAMS
-        ----------
-        num_episodes(int): Number of evaluation episodes
-        epsilon(float):    Epsilon constant for exploring the environment
-        gamma(float):      Discount factor
-
-        RETURNS
-        ----------
-        List with the optimal average-reward-per-step per reward machine
-        """
-        raise NotImplementedError()
-        # S,A,L,T = self.env.get_model()
-        # print("\nComputing optimal policies... ", end='', flush=True)
-        # optimal_policies = [value_iteration(S,A,L,T,rm,gamma) for rm in self.reward_machines]
-        # print("Done!")
-        # optimal_ARPS = [[] for _ in range(len(optimal_policies))]
-        # print("\nEvaluating optimal policies.")
-        # for ep in range(num_episodes):
-        #     if ep % 1000 == 0 and ep > 0:
-        #         print("%d/%d"%(ep,num_episodes))
-        #     self.reset()
-        #     s = tuple(self.obs)
-        #     u = self.current_u_id
-        #     rm_id = self.current_rm_id
-        #     rewards = []
-        #     done = False
-        #     while not done:
-        #         a = random.choice(A) if random.random() < epsilon else optimal_policies[rm_id][(s,u)]
-        #         _, r, done, _ = self.step(a)
-        #         rewards.append(r)
-        #         s = tuple(self.obs)
-        #         u = self.current_u_id
-        #     optimal_ARPS[rm_id].append(sum(rewards)/len(rewards))
-        # print("Done!\n")
-
-        # return [sum(arps)/len(arps) for arps in optimal_ARPS]

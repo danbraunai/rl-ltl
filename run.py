@@ -69,12 +69,13 @@ def run_value_iteration(finite=False):
         "use_crm": True,
         "use_rs": False,
         "horizon": 10,
+        "all_acts": False,
     }
 
     rm_env = FrozenLakeRMEnv(
-        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"]
+        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
+        all_acts=options["all_acts"]
     )
-    # rm_env = RewardMachineWrapper(rm_env, args.use_crm, args.use_rs, args.gamma, args.rs_gamma)
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
     # Only one reward machine for these experiments
     rm = rm_env.reward_machines[0]
@@ -83,14 +84,16 @@ def run_value_iteration(finite=False):
         optim_vals, n_iter, optim_pol = solver.value_iteration_finite(
             rm_env, rm, options["gamma"], horizon=options["horizon"]
         )
-        utils.display_grid_optimals(
+        v, pol = utils.display_grid_optimals(
             optim_vals, optim_pol, rm_env.env.desc.shape, len(rm.get_states()), options["horizon"]
         )
     else:
         optim_vals, n_iter, optim_pol = solver.value_iteration(rm_env, rm, options["gamma"])
-        utils.display_grid_optimals(
+        v, pol = utils.display_grid_optimals(
             optim_vals, optim_pol, rm_env.env.desc.shape, len(rm.get_states()), horizon=None
         )
+    print(v)
+    print(pol)
 
 def run_qlearning(finite=False):
     seed = 33
@@ -109,13 +112,14 @@ def run_qlearning(finite=False):
         "horizon": 10,
         "use_crm": True,
         "use_rs": False,
-        "print_freq": 10000
+        "print_freq": 10000,
+        "all_acts": False,
     }
 
     rm_env = FrozenLakeRMEnv(
-        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"]
+        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
+        all_acts=options["all_acts"]
     )
-    # rm_env = RewardMachineWrapper(rm_env, args.use_crm, args.use_rs, args.gamma, args.rs_gamma)
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
 
     if finite:
@@ -136,8 +140,8 @@ def run_qlearning(finite=False):
 
 if __name__ == "__main__":
     start = time.time()
-    # run_value_iteration(finite=True)
-    run_qlearning(finite=True)
+    run_value_iteration(finite=True)
+    # run_qlearning(finite=False)
     # run_qtlearning()
     # run_always_down()
     # run_a2c()

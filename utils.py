@@ -7,8 +7,9 @@ import numpy as np
 
 def display_grid_optimals(v_dict, pol_dict, state_shape, n_rm_states, horizon=None):
     """Display optimal values and policy for grid environments."""
-    display_grid_optimal_vals(v_dict, state_shape, n_rm_states, horizon)
-    display_grid_optimal_policy(pol_dict, state_shape, n_rm_states, horizon)
+    v = display_grid_optimal_vals(v_dict, state_shape, n_rm_states, horizon)
+    pol = display_grid_optimal_policy(pol_dict, state_shape, n_rm_states, horizon)
+    return v, pol
 
 def display_grid_optimal_vals(v_dict, state_shape, n_rm_states, horizon=None):
     """
@@ -25,7 +26,7 @@ def display_grid_optimal_vals(v_dict, state_shape, n_rm_states, horizon=None):
         v = np.empty((n_rm_states, *state_shape))
         for ((row, col), rm_s), val in v_dict.items():
             v[rm_s, row, col] = round(val, 3)
-    print(v)
+    return v
 
 def display_grid_optimal_policy(pol_dict, state_shape, n_rm_states, horizon=None):
     """
@@ -43,7 +44,7 @@ def display_grid_optimal_policy(pol_dict, state_shape, n_rm_states, horizon=None
         pol = np.empty((n_rm_states, *state_shape), dtype=object)
         for ((row, col), rm_s), actions in pol_dict.items():
             pol[rm_s, row, col] = tuple(actions)
-    print(pol)
+    return pol
 
 def set_random_seed(seed):
     """Set global random seeds for reproducability."""
