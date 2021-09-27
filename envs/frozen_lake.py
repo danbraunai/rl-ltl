@@ -38,7 +38,7 @@ MAPS = {
             (4,4): "f",
         },
         "objects_v1": {
-            (2,2): "r",
+            (0,2): "r",
             (4,4): "f",
         },
     },
@@ -135,7 +135,8 @@ class FrozenLake(Env):
         newrow, newcol = self._get_new_position(row, col, action)
         newletter = self.desc[newrow, newcol]
         # Env only "done" when fall down hole, other done statuses are handled by reward machine
-        done = bytes(newletter) in b'H'
+        done = (bytes(newletter) in b'H') or (newrow, newcol) == (self.nrow - 1, self.ncol - 1)
+
         # All rewards come from reward machine
         reward = 0
         return (newrow, newcol), reward, done
@@ -161,8 +162,9 @@ class FrozenLake(Env):
                 P[(row, col)] = {a: [] for a in range(self.nA)}
                 for a in range(self.nA):
                     letter = self.desc[row, col]
-                    if letter in b'H':
-                        # If fallen in hole, loop transition to the same state
+                    if (letter in b'H') or (row, col) == (self.nrow - 1, self.ncol - 1):
+                        # If fallen in hole or at bottom left corner of env (and thus can't move),
+                        # loop transition to the same state and tag that we are done
                         P[(row, col)][a].append((1.0, (row, col), 0, True))
                     elif letter == b'I':
                         # If on a slippery frozen square, take a random action with prob slip
@@ -179,6 +181,7 @@ class FrozenLake(Env):
                             ))
                     else:
                         P[(row, col)][a].append((1., *self._update_probability_matrix(row, col, a)))
+
         return P
 
     def seed(self, seed=None):
