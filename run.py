@@ -31,26 +31,26 @@ def run_a2c():
     model.learn(total_timesteps=10000)
     rollout_model(env, model)
 
-def rollout_model(env, model, num_eps=1, horizon=1e7):
+def rollout_model(env, model, num_eps=1, horizon=20):
     for ep in range(num_eps):
         s = tuple(env.reset())
         env.render()
-        t = 0
-        for _ in range(20):
-            # If no q-values for this state, add them
-            if s not in model.q:
-                print("No q-vals for:", s)
-                model.q[s] = np.zeros(model.env.action_space.n)
+        for t in range(horizon, 0, -1):
             if horizon:
-                a, _ = model.predict((s, t), deterministic=True)
+                # If no q-values for this state, add them
+                if (t, s) not in model.q:
+                    model.q[(t, s)] = [0] * model.env.action_space.n
+                a, _ = model.predict((t, s), deterministic=True)
             else:
+                # If no q-values for this state, add them
+                if s not in model.q:
+                    model.q[s] = [0] * model.env.action_space.n
                 a, _ = model.predict(s, deterministic=True)
-            new_s, reward, done, info = env.step(a)
+            new_s, _, done, _ = env.step(a)
             env.render()
             s = tuple(new_s)
 
-            t += 1
-            if done or t == horizon:
+            if done:
                 print("Finished ep")
                 break
 
@@ -92,7 +92,7 @@ def run_value_iteration(finite=False):
             optim_vals, optim_pol, rm_env.env.desc.shape, len(rm.get_states()), horizon=None
         )
 
-def run_qlearning():
+def run_qlearning(finite=False):
     seed = 33
     rm_file = "./envs/rm1_frozen_lake.txt"
     map_name = "5x5"
@@ -103,9 +103,13 @@ def run_qlearning():
         "gamma": 1,
         "epsilon": 0.4,
         "n_episodes": 10000,
+        # Only gets used in QLearning
         "n_rollout_steps": 100,
+        # Only gets used in QTlearning
+        "horizon": 10,
         "use_crm": True,
         "use_rs": False,
+        "print_freq": 10000
     }
 
     rm_env = FrozenLakeRMEnv(
@@ -113,23 +117,27 @@ def run_qlearning():
     )
     # rm_env = RewardMachineWrapper(rm_env, args.use_crm, args.use_rs, args.gamma, args.rs_gamma)
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
-    ql = QLearning(rm_env, **options, print_freq=20000)
+
+    if finite:
+        ql = QTLearning(rm_env, **options)
+    else:
+        ql = QLearning(rm_env, **options)
     ql.learn()
 
     qs = {}
     for k in ql.q:
-        qs["".join(str(i) for i in k)] = ql.q[k].tolist()
+        qs[f"{k}"] = ql.q[k]
     import json
     with open("qs.json", "w") as f:
         json.dump(qs, f, indent=4)
 
-    rollout_model(rm_env, ql, num_eps=1, horizon=None)
+    rollout_model(rm_env, ql, num_eps=1, horizon=options["horizon"])
 
 
 if __name__ == "__main__":
     start = time.time()
-    run_value_iteration(finite=True)
-    # run_qlearning()
+    # run_value_iteration(finite=True)
+    run_qlearning(finite=True)
     # run_qtlearning()
     # run_always_down()
     # run_a2c()

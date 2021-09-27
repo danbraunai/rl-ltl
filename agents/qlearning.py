@@ -17,7 +17,8 @@ class QLearning:
                  n_rollout_steps=100,
                  use_crm=True,
                  use_rs=True,
-                 print_freq=10000):
+                 print_freq=10000,
+                 **_):
         # Set global seed for reproducibility
         if seed is not None:
             set_random_seed(seed)
@@ -44,7 +45,7 @@ class QLearning:
         for _ in range(self.n_episodes):
             s = tuple(self.env.reset())
             if s not in self.q:
-                self.q[s] = np.zeros(self.env.action_space.n)
+                self.q[s] = [0] * self.env.action_space.n
             for _ in range(self.n_rollout_steps):
                 # Get epsilon-greedy action
                 a, _ = self.predict(s, deterministic=False)
@@ -55,7 +56,7 @@ class QLearning:
                 # Updating the q-values
                 experiences = []
                 if self.use_crm:
-                    # Adding counterfactual experience (this will alrady include shaped rewards
+                    # Adding counterfactual experience (this will already include shaped rewards
                     # if use_rs=True)
                     for _s, _a, _r, _sn, _done in info["crm-experience"]:
                         experiences.append((tuple(_s), _a, _r, tuple(_sn), _done))
@@ -69,9 +70,9 @@ class QLearning:
                 for _s, _a, _r, _sn, _done in experiences:
                     # if _s not in Q: Q[_s] = dict([(b,q_init) for b in actions])
                     if _s not in self.q:
-                        self.q[_s] = np.zeros(self.env.action_space.n)
+                        self.q[_s] = [0] * self.env.action_space.n
                     if _sn not in self.q:
-                        self.q[_sn] = np.zeros(self.env.action_space.n)
+                        self.q[_sn] = [0] * self.env.action_space.n
                     if _done:
                         _delta = _r - self.q[_s][_a]
                     else:
