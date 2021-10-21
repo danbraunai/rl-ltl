@@ -5,7 +5,7 @@ gym environment.
 
 import numpy as np
 
-def value_iteration(env, rm, gamma, threshold=1e-4, get_policy=True):
+def value_iteration(env, rm, gamma, threshold=0.001, get_policy=True):
     """
     Runs value iteration until convergence (within specified threshold). Mostly the same as
     https://github.com/RodrigoToroIcarte/reward_machines/blob/master/reward_machines/envs/grids/value_iteration.py
@@ -26,7 +26,7 @@ def value_iteration(env, rm, gamma, threshold=1e-4, get_policy=True):
     rm_states = rm.get_states()
     # Initialise v, the estimated value at each state.
     v = {(s, u): 0 for s in env_states for u in rm_states}
-    # Track the number of passes through all states
+    # Track the number of passes through each (s, u) pair
     n_iter = 0
     # Delta tracks the max difference between v estimates at each iteration
     delta = threshold
@@ -53,6 +53,9 @@ def value_iteration(env, rm, gamma, threshold=1e-4, get_policy=True):
                 delta = np.max([delta, np.abs(v_new - v[(s, u)])])
                 v[(s, u)] = v_new
                 n_iter += 1
+        if n_iter / len(env_states) * len(rm_states) == 10000:
+            print("No convergence")
+            break
 
     policy = {}
     if get_policy:

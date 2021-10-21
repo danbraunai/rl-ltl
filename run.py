@@ -2,8 +2,7 @@ import time
 import numpy as np
 import gym
 from envs.frozen_lake import FrozenLakeRMEnv
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3 import A2C
+# from stable_baselines3 import A2C
 
 from agents.qlearning import QLearning
 from agents.qtlearning import QTLearning
@@ -24,12 +23,12 @@ def run_always_down():
             print("Rollout finished.")
             break
 
-def run_a2c():
-    env = FrozenLake(map_name="5x5", slip=0.5)
-    # With gamma<1, agent learns to only go DownRight in s3
-    model = A2C('MlpPolicy', env, gamma=0.99, verbose=1)
-    model.learn(total_timesteps=10000)
-    rollout_model(env, model)
+# def run_a2c():
+#     env = FrozenLake(map_name="5x5", slip=0.5)
+#     # With gamma<1, agent learns to only go DownRight in s3
+#     model = A2C('MlpPolicy', env, gamma=0.99, verbose=1)
+#     model.learn(total_timesteps=10000)
+#     rollout_model(env, model)
 
 def rollout_model(env, model, num_eps=1, horizon=20):
     for ep in range(num_eps):
@@ -56,9 +55,17 @@ def rollout_model(env, model, num_eps=1, horizon=20):
 
 def run_value_iteration(finite=False):
     seed = 41
-    rm_file = "./envs/rm1_frozen_lake.txt"
+    # rm_files = ["./envs/rm1_frozen_lake.txt"]
+    # rm_files = ["./envs/rm1_frozen_lake.txt", "./envs/rm2_frozen_lake.txt"]
+    # rm_files = ["./envs/rm0_frozen_lake.txt", "./envs/rm3_frozen_lake.txt"]
+    # rm_files = ["./envs/rm1_rm2_frozen_lake.txt"]
+    # rm_files = ["./envs/rm0_frozen_lake.txt"]
+    # rm_files = ["./envs/rm4_frozen_lake.txt"]
+    rm_files = ["./envs/rm4_frozen_lake.txt", "./envs/rm1_frozen_lake.txt"]
+    multi_objective_weights = [0.5, 0.5]
+    # multi_objective_weights = None
     map_name = "5x5"
-    obj_name = "objects_v1"
+    obj_name = "objects_v0"
     options = {
         "seed": seed,
         "lr": 0.5,
@@ -68,12 +75,16 @@ def run_value_iteration(finite=False):
         "n_rollout_steps": 100,
         "use_crm": True,
         "use_rs": False,
-        "horizon": 10,
+        "horizon": 15,
         "all_acts": False,
     }
 
+    if multi_objective_weights:
+        # Create a new rm_file combining rm_files with multi_objective_weights
+        rm_files = [utils.scalarize_rewards(rm_files, multi_objective_weights)]
+
     rm_env = FrozenLakeRMEnv(
-        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
+        rm_files, map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
         all_acts=options["all_acts"]
     )
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
@@ -93,11 +104,14 @@ def run_value_iteration(finite=False):
             optim_vals, optim_pol, rm_env.env.desc.shape, len(rm.get_states()), horizon=None
         )
     print(v)
-    print(pol)
+    for i in range(pol.shape[0]):
+        print(i, pol[i], "\n")
+    # print(pol)
+    print(n_iter)
 
 def run_qlearning(finite=False):
     seed = 33
-    rm_file = "./envs/rm1_frozen_lake.txt"
+    rm_files = ["./envs/rm1_frozen_lake.txt"]
     map_name = "5x5"
     obj_name = "objects_v1"
     options = {
@@ -117,7 +131,7 @@ def run_qlearning(finite=False):
     }
 
     rm_env = FrozenLakeRMEnv(
-        [rm_file], map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
+        rm_files, map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
         all_acts=options["all_acts"]
     )
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
@@ -140,9 +154,8 @@ def run_qlearning(finite=False):
 
 if __name__ == "__main__":
     start = time.time()
-    run_value_iteration(finite=True)
+    run_value_iteration(finite=False)
     # run_qlearning(finite=False)
-    # run_qtlearning()
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)
