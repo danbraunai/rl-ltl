@@ -22,8 +22,8 @@ def categorical_sample(prob_n, np_random):
     csprob_n = np.cumsum(prob_n)
     return (csprob_n > np_random.rand()).argmax()
 
-ACTIONS = ["RIGHT", "DOWNRIGHT", "DOWN"]
-ACTIONS_ALL = ["RIGHT", "DOWNRIGHT", "DOWN", "DOWNLEFT", "LEFT", "UPLEFT", "UP", "UPRIGHT"]
+ACTIONS_RIGHT = ["RIGHT", "DOWNRIGHT", "DOWN"]
+ACTIONS = ["RIGHT", "DOWNRIGHT", "DOWN", "DOWNLEFT", "LEFT", "UPLEFT", "UP", "UPRIGHT"]
 
 # Predefined maps and objects
 MAPS = {
@@ -35,16 +35,12 @@ MAPS = {
             "IIIIP",
             "HHHHP",
         ],
-        "objects_v0": {
+        "objects_t1": {
             (4, 4): "f",
         },
-        "objects_v1": {
-            (0, 2): "r",
+        "objects_t2": {
+            (2, 3): "r",
             (4, 4): "f",
-        },
-        "objects_v2": {
-            (2, 4): "r",
-            (3, 0): "f",
         },
     },
 }
@@ -88,7 +84,7 @@ class FrozenLake(Env):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, map_name="5x5", obj_name="objects_v0", slip=0.2, seed=None, all_acts=False):
+    def __init__(self, map_name="5x5", obj_name="objects_v0", slip=0.2, seed=None, all_acts=True):
         """
         Setup environment, including saving all possible state-transitions and their
         probability.
@@ -105,7 +101,7 @@ class FrozenLake(Env):
         # TODO: allow random generation of objects
         self.objects = MAPS[map_name][obj_name]
         self.slip = slip
-        self.actions = ACTIONS_ALL if all_acts else ACTIONS
+        self.actions = ACTIONS if all_acts else ACTIONS_RIGHT
 
         # For rendering
         self.lastaction = None
@@ -187,8 +183,10 @@ class FrozenLake(Env):
                 P[(row, col)] = {a: [] for a in range(self.nA)}
                 for a in range(self.nA):
                     letter = self.desc[row, col]
-                    if (letter in b'H') or (row, col) == (self.nrow - 1, self.ncol - 1):
-                        # If fallen in hole or at bottom left corner of env (and thus can't move),
+                    if (letter in b'H' or 
+                            (self.actions == ACTIONS_RIGHT and 
+                            (row, col) == (self.nrow - 1, self.ncol - 1))):
+                        # If fallen in hole or at bottom right corner of env (and thus can't move),
                         # loop transition to the same state and tag that we are done
                         P[(row, col)][a].append((1.0, (row, col), 0, True))
                     elif letter == b'I':

@@ -5,11 +5,16 @@ gym environment.
 
 import numpy as np
 
-def value_iteration(env, rm, gamma, threshold=0.001, get_policy=True):
+def value_iteration(env, rm, gamma, threshold=0.00001, get_policy=True):
     """
     Runs value iteration until convergence (within specified threshold). Mostly the same as
     https://github.com/RodrigoToroIcarte/reward_machines/blob/master/reward_machines/envs/grids/value_iteration.py
     but handles stoachstic environments.
+    Note that the value at given at an env state may not be valid if that env state cannot be
+    visited unless in a terminal rm state. E.g. consider a simple reachability task in a grid
+    world, with a goal state of cell G. Note that there is one non-terminal rm state U and one
+    terminal state. Value iteration will output V(G,U)=1, even though it is impossible to be in
+    state G whilst in a non-terminal rm state U.
 
     Args:
         env: Openai gym environment that contains a transition matrix P which is a dictionary of
@@ -48,7 +53,6 @@ def value_iteration(env, rm, gamma, threshold=0.001, get_policy=True):
                         else:
                             q_val += prob * (r + gamma * v[(new_s, new_u)])
                     q_vals.append(q_val)
-
                 v_new = np.max(q_vals)
                 delta = np.max([delta, np.abs(v_new - v[(s, u)])])
                 v[(s, u)] = v_new

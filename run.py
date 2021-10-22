@@ -55,17 +55,10 @@ def rollout_model(env, model, num_eps=1, horizon=20):
 
 def run_value_iteration(finite=False):
     seed = 41
-    # rm_files = ["./envs/rm1_frozen_lake.txt"]
-    # rm_files = ["./envs/rm1_frozen_lake.txt", "./envs/rm2_frozen_lake.txt"]
-    # rm_files = ["./envs/rm0_frozen_lake.txt", "./envs/rm3_frozen_lake.txt"]
-    # rm_files = ["./envs/rm1_rm2_frozen_lake.txt"]
-    # rm_files = ["./envs/rm0_frozen_lake.txt"]
-    # rm_files = ["./envs/rm4_frozen_lake.txt"]
-    rm_files = ["./envs/rm4_frozen_lake.txt", "./envs/rm1_frozen_lake.txt"]
-    multi_objective_weights = [0.5, 0.5]
-    # multi_objective_weights = None
+    rm_files = ["./envs/rm_t1_frozen_lake.txt"]
+    multi_objective_weights = None
     map_name = "5x5"
-    obj_name = "objects_v0"
+    obj_name = "objects_t2"
     options = {
         "seed": seed,
         "lr": 0.5,
@@ -76,7 +69,7 @@ def run_value_iteration(finite=False):
         "use_crm": True,
         "use_rs": False,
         "horizon": 15,
-        "all_acts": False,
+        "all_acts": True,
     }
 
     if multi_objective_weights:
@@ -113,7 +106,7 @@ def run_qlearning(finite=False):
     seed = 33
     rm_files = ["./envs/rm1_frozen_lake.txt"]
     map_name = "5x5"
-    obj_name = "objects_v1"
+    obj_name = "objects_t1"
     options = {
         "seed": seed,
         "lr": 0.5,
