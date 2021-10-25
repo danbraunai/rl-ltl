@@ -116,10 +116,10 @@ def run_q_algo(rm_files, map_name, obj_name, options, out_dir, finite=False):
         ql = QLearning(rm_env, **options)
     return ql.learn()
 
-def infinite_horizon_experiments():
-    rm_files = ["./envs/rm_t2_frozen_lake.txt"]
+def infinite_horizon_experiments(task_num):
+    rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
     map_name = "5x5"
-    obj_name = "objects_t2"
+    obj_name = f"objects_t{task_num}"
     out_dir = "results"
 
     policy_info = {}
@@ -147,8 +147,8 @@ def infinite_horizon_experiments():
             rm_files, map_name, obj_name, options, out_dir, finite=False
         )
 
-    plotting.plot_rewards(policy_info, "experiences", out_dir)
-    plotting.plot_rewards(policy_info, "updates", out_dir)
+    plotting.plot_rewards(policy_info, "experiences", out_dir, f"Task{task_num}")
+    plotting.plot_rewards(policy_info, "updates", out_dir, f"Task{task_num}")
     print(policy_info)
     # return
     # qs = {}
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     seed = 35
     # run_value_iteration(finite=True)
     # run_q_algo(finite=False)
-    infinite_horizon_experiments()
+    infinite_horizon_experiments(3)
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)

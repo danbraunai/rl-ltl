@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 
-def plot_rewards(data, x_name, out_dir):
+def plot_rewards(data, x_name, out_dir, task_name):
     """Line plot of rewards vs number of (s,a,s') experiences or updates used."""
     # Create plot and save to directory
     plt.style.use("ggplot")
@@ -13,5 +13,5 @@ def plot_rewards(data, x_name, out_dir):
     plt.xlabel(f"Number of {x_name}")
     plt.ylabel("Average Reward")
 
-    plt.savefig(f"{out_dir}/{alg_name}_rew_vs_{x_name}.png")
+    plt.savefig(f"{out_dir}/{task_name}_{alg_name}_rew_vs_{x_name}.png")
     plt.clf()

@@ -42,6 +42,12 @@ MAPS = {
             (2, 3): "r",
             (4, 4): "f",
         },
+        "objects_t3": {
+            (3, 3): "r",
+            (2, 2): "s",
+            (0, 1): "t",
+            (4, 4): "f",
+        },
     },
 }
 
@@ -75,8 +81,7 @@ class FrozenLake(Env):
 
     The rope and your friend are objects referenced by zero-indexed grid locations.
     E.g. an object entry of (1,1): "r" means that a rope is on the second row and column,
-    (2,3): "f" means that a friend is at the thrid row and forth column, and
-    (2,3): "f&r" means that both the rope and a friend are at the thrid row and forth column.
+    (2,3): "f" means that a friend is at the thrid row and forth column.
 
     The episode ends when you pull your friend out of the hole with the rope or fall in a hole.
     You receive a reward of 1 if you succeed, and zero otherwise.
@@ -109,7 +114,7 @@ class FrozenLake(Env):
         self.nS = self.nrow * self.ncol
 
         # Current positions of agent
-        self.s = tuple(np.argwhere(self.desc == b'S')[0])
+        self.s = tuple(np.argwhere(self.desc == b"S")[0])
         self.action_space = spaces.Discrete(self.nA)
         self.observation_space = spaces.Box(
             low=0, high=max([self.nrow, self.ncol]), shape=(2,), dtype=np.uint8
@@ -219,7 +224,7 @@ class FrozenLake(Env):
         return [seed]
 
     def reset(self):
-        self.s = tuple(np.argwhere(self.desc == b'S')[0])
+        self.s = tuple(np.argwhere(self.desc == b"S")[0])
         self.lastaction = None
         return self.s
 
