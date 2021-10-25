@@ -119,6 +119,9 @@ class FrozenLake(Env):
         self.P = self.get_transitions()
 
     def _get_new_position(self, row, col, a):
+        """
+        Move the agent. If the new direction is outside of the grid, leave the agent where she is.
+        """
         if self.actions[a] == "RIGHT":
             col = min(col + 1, self.ncol - 1)
         elif self.actions[a] == "DOWNRIGHT":
@@ -172,6 +175,8 @@ class FrozenLake(Env):
     def get_transitions(self):
         """
         Stores the possible transitions after taking an action in a state.
+        A move on a slippery surface will move to the desired state self.slip percent of the time
+        and move in a uniformly random direction otherwise.
         Returns:
             P: Dict. P[state][action] == [(probability, nextstate, reward, done, label), ...],
             where state and nextstate are of the form (row, col).
@@ -186,7 +191,8 @@ class FrozenLake(Env):
                     if (letter in b'H' or 
                             (self.actions == ACTIONS_RIGHT and 
                             (row, col) == (self.nrow - 1, self.ncol - 1))):
-                        # If fallen in hole or at bottom right corner of env (and thus can't move),
+                        # If fallen in hole or at bottom right corner of env with only ACTIONS_RIGHT
+                        # available (and thus can't move),
                         # loop transition to the same state and tag that we are done
                         P[(row, col)][a].append((1.0, (row, col), 0, True))
                     elif letter == b'I':

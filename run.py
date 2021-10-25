@@ -9,6 +9,7 @@ from agents.qtlearning import QTLearning
 import solver
 from reward_machines.rm_environment import RewardMachineEnv, RewardMachineWrapper
 import utils
+import plotting
 
 
 def run_always_down():
@@ -54,21 +55,20 @@ def rollout_model(env, model, num_eps=1, horizon=20):
                 break
 
 def run_value_iteration(finite=False):
-    seed = 41
     rm_files = ["./envs/rm_t1_frozen_lake.txt"]
     multi_objective_weights = None
     map_name = "5x5"
-    obj_name = "objects_t2"
+    obj_name = "objects_t1"
     options = {
         "seed": seed,
         "lr": 0.5,
         "gamma": 1,
-        "epsilon": 0.1,
+        "epsilon": 0.2,
         "n_episodes": 1000,
         "n_rollout_steps": 100,
         "use_crm": True,
         "use_rs": False,
-        "horizon": 15,
+        "horizon": 1,
         "all_acts": True,
     }
 
@@ -102,27 +102,8 @@ def run_value_iteration(finite=False):
     # print(pol)
     print(n_iter)
 
-def run_qlearning(finite=False):
-    seed = 33
-    rm_files = ["./envs/rm1_frozen_lake.txt"]
-    map_name = "5x5"
-    obj_name = "objects_t1"
-    options = {
-        "seed": seed,
-        "lr": 0.5,
-        "gamma": 1,
-        "epsilon": 0.4,
-        "n_episodes": 10000,
-        # Only gets used in QLearning
-        "n_rollout_steps": 100,
-        # Only gets used in QTlearning
-        "horizon": 10,
-        "use_crm": True,
-        "use_rs": False,
-        "print_freq": 10000,
-        "all_acts": False,
-    }
 
+def run_q_algo(rm_files, map_name, obj_name, options, out_dir, finite=False):
     rm_env = FrozenLakeRMEnv(
         rm_files, map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
         all_acts=options["all_acts"]
@@ -133,22 +114,59 @@ def run_qlearning(finite=False):
         ql = QTLearning(rm_env, **options)
     else:
         ql = QLearning(rm_env, **options)
-    ql.learn()
+    return ql.learn()
 
-    qs = {}
-    for k in ql.q:
-        qs[f"{k}"] = ql.q[k]
-    import json
-    with open("qs.json", "w") as f:
-        json.dump(qs, f, indent=4)
+def infinite_horizon_experiments():
+    rm_files = ["./envs/rm_t2_frozen_lake.txt"]
+    map_name = "5x5"
+    obj_name = "objects_t2"
+    out_dir = "results"
 
-    rollout_model(rm_env, ql, num_eps=1, horizon=options["horizon"])
+    policy_info = {}
+    for use_crm in [False, True]:
+        alg_name = "CRM" if use_crm else "qlearning"
+        options = {
+            "seed": seed,
+            "lr": 0.1,
+            "gamma": 1,
+            "epsilon": 0.2,
+            "n_episodes": 1000,
+            # Only gets used in QLearning
+            "n_rollout_steps": 1000,
+            # Only gets used in QTlearning
+            "horizon": 10,
+            "use_crm": use_crm,
+            "use_rs": False,
+            "print_freq": 10000,
+            "eval_freq": 30,
+            "num_eval_eps": 30,
+            "all_acts": True,
+        }
+
+        policy_info[alg_name] = run_q_algo(
+            rm_files, map_name, obj_name, options, out_dir, finite=False
+        )
+
+    plotting.plot_rewards(policy_info, "experiences", out_dir)
+    plotting.plot_rewards(policy_info, "updates", out_dir)
+    print(policy_info)
+    # return
+    # qs = {}
+    # for k in ql.q:
+    #     qs[f"{k}"] = ql.q[k]
+    # import json
+    # with open(f"{out_dir}/qs.json", "w") as f:
+    #     json.dump(qs, f, indent=4)
+
+    # rollout_model(rm_env, ql, num_eps=1, horizon=options["horizon"])
 
 
 if __name__ == "__main__":
     start = time.time()
-    run_value_iteration(finite=False)
-    # run_qlearning(finite=False)
+    seed = 35
+    # run_value_iteration(finite=True)
+    # run_q_algo(finite=False)
+    infinite_horizon_experiments()
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)
