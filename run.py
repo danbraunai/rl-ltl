@@ -124,13 +124,16 @@ def infinite_horizon_experiments(task_num):
 
     policy_info = {}
     for use_crm in [False, True]:
+        # CRM == Qlearning for task 1
+        if task_num == 1 and use_crm:
+            continue
         alg_name = "CRM" if use_crm else "qlearning"
         options = {
             "seed": seed,
             "lr": 0.1,
-            "gamma": 1,
-            "epsilon": 0.2,
-            "n_episodes": 1000,
+            "gamma": 0.99,
+            "epsilon": 0.1,
+            "n_episodes": 20000,
             # Only gets used in QLearning
             "n_rollout_steps": 1000,
             # Only gets used in QTlearning
@@ -138,7 +141,7 @@ def infinite_horizon_experiments(task_num):
             "use_crm": use_crm,
             "use_rs": False,
             "print_freq": 10000,
-            "eval_freq": 30,
+            "eval_freq": 500,
             "num_eval_eps": 30,
             "all_acts": True,
         }
@@ -147,8 +150,7 @@ def infinite_horizon_experiments(task_num):
             rm_files, map_name, obj_name, options, out_dir, finite=False
         )
 
-    plotting.plot_rewards(policy_info, "experiences", out_dir, f"Task{task_num}")
-    plotting.plot_rewards(policy_info, "updates", out_dir, f"Task{task_num}")
+    plotting.plot_rewards(policy_info, out_dir, f"Task{task_num}")
     print(policy_info)
     # return
     # qs = {}
@@ -163,10 +165,11 @@ def infinite_horizon_experiments(task_num):
 
 if __name__ == "__main__":
     start = time.time()
-    seed = 35
+    seed = 36
     # run_value_iteration(finite=True)
     # run_q_algo(finite=False)
-    infinite_horizon_experiments(3)
+    for i in range(1, 4):
+        infinite_horizon_experiments(i)
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)

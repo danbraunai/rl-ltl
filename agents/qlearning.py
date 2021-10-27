@@ -43,7 +43,7 @@ class QLearning:
         Run qlearning. Adapted from
         https://github.com/RodrigoToroIcarte/reward_machines.
         """
-        policy_info = {"experiences": [], "updates": [], "rewards": []}
+        policy_info = {"samples": [], "updates": [], "rewards": []}
         # policy_info = []
         reward_total = 0
         step = 0
@@ -87,7 +87,7 @@ class QLearning:
                     self.q[_s][_a] += self.lr * _delta
                     updates += 1
 
-                # moving to the next state
+                # Collect the undiscounted reward
                 reward_total += r
                 step += 1
                 if step % self.print_freq == 0:
@@ -100,10 +100,10 @@ class QLearning:
                 s = sn
             if self.eval_freq is not None and (ep + 1) % self.eval_freq == 0:
                 # Evaluate the current policy
-                policy_info["experiences"].append(step)
+                policy_info["samples"].append(step)
                 policy_info["updates"].append(updates)
-                # policy_info["rewards"].append(self.eval_policy())
                 policy_info["rewards"].append(reward_total / self.eval_freq)
+                # policy_info["rewards"].append(self.eval_policy())
                 # policy_info.append([step, updates, self.eval_policy()])
                 # policy_info.append(
                     # {"eps": ep + 1, "updates": updates, "av_reward": self.eval_policy()}
@@ -137,7 +137,7 @@ class QLearning:
                     self.q[s] = [0] * self.env.action_space.n
                 # Must allow for random action to avoid trying to always move off the grid (and
                 # thus staying in the same place)
-                a, _ = self.predict(s, deterministic=False)
+                a, _ = self.predict(s, deterministic=True)
                 new_s, r, done, _ = self.env.step(a)
                 total_rewards += r
                 s = tuple(new_s)
