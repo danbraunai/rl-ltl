@@ -16,7 +16,7 @@ class QLearning:
                  n_episodes=1000,
                  n_rollout_steps=1000,
                  use_crm=True,
-                 use_rs=True,
+                 use_rs=False,
                  print_freq=10000,
                  eval_freq=100,
                  num_eval_eps=20,
@@ -44,7 +44,6 @@ class QLearning:
         https://github.com/RodrigoToroIcarte/reward_machines.
         """
         policy_info = {"samples": [], "updates": [], "rewards": []}
-        # policy_info = []
         reward_total = 0
         step = 0
         updates = 0
@@ -94,7 +93,6 @@ class QLearning:
                     print("steps", step)
                     print("episodes", ep + 1)
                     print("total reward", reward_total)
-                    # reward_total = 0
                 if done:
                     break
                 s = sn
@@ -104,10 +102,6 @@ class QLearning:
                 policy_info["updates"].append(updates)
                 policy_info["rewards"].append(reward_total / self.eval_freq)
                 # policy_info["rewards"].append(self.eval_policy())
-                # policy_info.append([step, updates, self.eval_policy()])
-                # policy_info.append(
-                    # {"eps": ep + 1, "updates": updates, "av_reward": self.eval_policy()}
-                # )
                 reward_total = 0
         return policy_info
 

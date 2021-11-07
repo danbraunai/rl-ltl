@@ -5,7 +5,7 @@ gym environment.
 
 import numpy as np
 
-def value_iteration(env, rm, gamma, threshold=0.00001, get_policy=True):
+def value_iteration(env, rm, gamma, threshold=0.00001, get_policy=True, step_penalty=0):
     """
     Runs value iteration until convergence (within specified threshold). Mostly the same as
     https://github.com/RodrigoToroIcarte/reward_machines/blob/master/reward_machines/envs/grids/value_iteration.py
@@ -24,8 +24,8 @@ def value_iteration(env, rm, gamma, threshold=0.00001, get_policy=True):
         threshold: Parameter controlling when to stop value iteration (i.e. when the diff between
             state-values at each iteration are all less than threshold).
         get_policy: Bool indicating whether to calculate the optimal policy given the optimal vals.
+        step_penalty: Positive float indicating the reward penalty to give for each step.
     """
-
     assert len(env.reward_machines) == 1, "Value iteration only supports one reward machine"
     env_states = list(env.P.keys())
     rm_states = rm.get_states()
@@ -47,6 +47,8 @@ def value_iteration(env, rm, gamma, threshold=0.00001, get_policy=True):
                     for prob, new_s, _, _ in env.P[s][a]:
                         label = env.get_label(new_s)
                         new_u, r, done = rm.step(u, label, None)
+                        r -= step_penalty
+                        # print(step_penalty)
                         # Weighted sum of expected rewards
                         if done:
                             q_val += prob * r
@@ -72,6 +74,7 @@ def value_iteration(env, rm, gamma, threshold=0.00001, get_policy=True):
                     for prob, new_s, _, _ in env.P[s][a]:
                         label = env.get_label(new_s)
                         new_u, r, done = rm.step(u, label, None)
+                        r -= step_penalty
                         # Weighted sum of expected rewards
                         if done:
                             q_val += prob * r

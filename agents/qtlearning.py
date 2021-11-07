@@ -10,14 +10,17 @@ class QTLearning:
     def __init__(self,
                  env,
                  seed=None,
-                 lr=0.5,
+                 lr=0.1,
                  gamma=1,
                  epsilon=0.1,
                  n_episodes=1000,
-                 horizon=10,
+                 horizon=20,
+                 n_rollout_steps=20,
+                 use_t=True,
                  use_crm=True,
-                 use_rs=True,
                  print_freq=10000,
+                 eval_freq=100,
+                 num_eval_eps=20,
                  **_):
         # Set global seed for reproducibility
         if seed is not None:
@@ -29,24 +32,28 @@ class QTLearning:
         self.epsilon = epsilon
         self.n_episodes = n_episodes
         self.horizon = horizon
+        self.n_rollout_steps = n_rollout_steps
+        self.use_t = use_t
         self.use_crm = use_crm
-        self.use_rs = use_rs
         self.print_freq = print_freq
+        self.eval_freq = eval_freq
+        self.num_eval_eps = num_eval_eps
         # q dict will have the form (time_rem, state): q-val
         self.q = {}
 
     def learn(self):
         """
-        Run qlearning, updating self.q after each step. Adapted from
+        Run qlearning. Adapted from
         https://github.com/RodrigoToroIcarte/reward_machines.
         """
+        policy_info = {"samples": [], "updates": [], "rewards": []}
         reward_total = 0
         step = 0
-        num_episodes = 0
-        for _ in range(self.n_episodes):
+        updates = 0
+        for ep in range(self.n_episodes):
             s = tuple(self.env.reset())
             # Iterate through steps remaining
-            for t in range(self.horizon, 0, -1):
+            for t in range(self.n_rollout_steps, 0, -1):
                 if (t, s) not in self.q:
                     self.q[(t, s)] = [0] * self.env.action_space.n
                     # self.q[(t, s)] = np.zeros(self.env.action_space.n)
@@ -59,19 +66,23 @@ class QTLearning:
                 # Updating the q-values
                 experiences = []
                 if self.use_crm:
-                    # Adding counterfactual experience for all combinations of reward machine
-                    # state and timestep remaining (this will already include shaped rewards
-                    # if use_rs=True)
+                    # Adding counterfactual experience for all reward machine states
                     for _s, _a, _r, _sn, _done in info["crm-experience"]:
-                        for t_rem in range(1, self.horizon + 1):
-                            experiences.append((t_rem, tuple(_s), _a, _r, tuple(_sn), _done))
-                elif self.use_rs:
-                    # Include only the current experince for current t but shape the reward
-                    experiences = [(t, s, a, info["rs-reward"], sn, done)]
+                        if self.use_t:
+                            # Also add counterfactual experiences for each timestep
+                            for t_rem in range(1, self.n_rollout_steps + 1):
+                                experiences.append((t_rem, tuple(_s), _a, _r, tuple(_sn), _done))
+                        else:
+                            experiences.append((t, tuple(_s), _a, _r, tuple(_sn), _done))
                 else:
-                    # Include only the current experience for the current timestep (standard
-                    # q-learning on extended SxT space)
-                    experiences = [(t, s, a, r, sn, done)]
+                    if self.use_t:
+                        # Add counterfactual experiences for each timestep
+                        for t_rem in range(1, self.n_rollout_steps + 1):
+                            experiences.append((t_rem, s, a, r, sn, done))
+                    else:
+                        # Include only the current experience for the current timestep (standard
+                        # q-learning on extended SxT space)
+                        experiences = [(t, s, a, r, sn, done)]
 
                 for _t, _s, _a, _r, _sn, _done in experiences:
                     # if _s not in Q: Q[_s] = dict([(b,q_init) for b in actions])
@@ -79,28 +90,36 @@ class QTLearning:
                         self.q[(_t, _s)] = [0] * self.env.action_space.n
                     if (_t, _sn) not in self.q:
                         self.q[(_t, _sn)] = [0] * self.env.action_space.n
+                    if (_t - 1, _sn) not in self.q:
+                        self.q[(_t - 1, _sn)] = [0] * self.env.action_space.n
                     # Don't bootstrap when done or if only one timestep remaining
                     if _done or _t == 1:
                         _delta = _r - self.q[(_t, _s)][_a]
                     else:
-                        # _delta = _r + self.gamma * get_qmax(Q, _sn,actions,q_init) - Q[_s][_a]
                         _delta = (
                             _r + self.gamma * np.max(self.q[(_t - 1, _sn)]) - self.q[(_t, _s)][_a]
                         )
                     self.q[(_t, _s)][_a] += self.lr * _delta
+                    updates += 1
 
                 # moving to the next state
-                reward_total += r
+                if t <= self.horizon:
+                    reward_total += r
                 step += 1
                 if step % self.print_freq == 0:
                     print("steps", step)
-                    print("episodes", num_episodes)
+                    print("episodes", ep + 1)
                     print("total reward", reward_total)
-                    reward_total = 0
                 if done:
-                    num_episodes += 1
                     break
                 s = sn
+            if self.eval_freq is not None and (ep + 1) % self.eval_freq == 0:
+                # Evaluate the current policy
+                policy_info["samples"].append(step)
+                policy_info["updates"].append(updates)
+                policy_info["rewards"].append(reward_total / self.eval_freq)
+                reward_total = 0
+        return policy_info
 
     def predict(self, info, deterministic=False):
         """

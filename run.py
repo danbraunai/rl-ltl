@@ -1,4 +1,6 @@
 import time
+import datetime
+import json
 import numpy as np
 import gym
 from envs.frozen_lake import FrozenLakeRMEnv
@@ -11,6 +13,7 @@ from reward_machines.rm_environment import RewardMachineEnv, RewardMachineWrappe
 import utils
 import plotting
 
+TODAY = datetime.datetime.now().strftime("%d-%m-%Y")
 
 def run_always_down():
     env = FrozenLake(map_name="5x5", slip=0.5)
@@ -54,22 +57,14 @@ def rollout_model(env, model, num_eps=1, horizon=20):
                 print("Finished ep")
                 break
 
-def run_value_iteration(finite=False):
-    rm_files = ["./envs/rm_t1_frozen_lake.txt"]
+def run_value_iteration(task_num, step_penalty=0, horizon=None, gamma=1):
+    rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
     multi_objective_weights = None
     map_name = "5x5"
-    obj_name = "objects_t1"
+    obj_name = f"objects_t{task_num}"
     options = {
-        "seed": seed,
-        "lr": 0.5,
-        "gamma": 1,
-        "epsilon": 0.2,
-        "n_episodes": 1000,
-        "n_rollout_steps": 100,
-        "use_crm": True,
-        "use_rs": False,
-        "horizon": 1,
-        "all_acts": True,
+        "gamma": gamma,
+        "horizon": horizon,
     }
 
     if multi_objective_weights:
@@ -77,14 +72,14 @@ def run_value_iteration(finite=False):
         rm_files = [utils.scalarize_rewards(rm_files, multi_objective_weights)]
 
     rm_env = FrozenLakeRMEnv(
-        rm_files, map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
-        all_acts=options["all_acts"]
+        rm_files, map_name=map_name, obj_name=obj_name, slip=0.5, seed=None,
+        all_acts=True
     )
-    rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
+    rm_env = RewardMachineWrapper(rm_env, False, False, options["gamma"], 1)
     # Only one reward machine for these experiments
     rm = rm_env.reward_machines[0]
 
-    if finite:
+    if horizon:
         optim_vals, n_iter, optim_pol = solver.value_iteration_finite(
             rm_env, rm, options["gamma"], horizon=options["horizon"]
         )
@@ -92,7 +87,9 @@ def run_value_iteration(finite=False):
             optim_vals, optim_pol, rm_env.env.desc.shape, len(rm.get_states()), options["horizon"]
         )
     else:
-        optim_vals, n_iter, optim_pol = solver.value_iteration(rm_env, rm, options["gamma"])
+        optim_vals, n_iter, optim_pol = solver.value_iteration(
+            rm_env, rm, options["gamma"], step_penalty=step_penalty
+        )
         v, pol = utils.display_grid_optimals(
             optim_vals, optim_pol, rm_env.env.desc.shape, len(rm.get_states()), horizon=None
         )
@@ -106,7 +103,7 @@ def run_value_iteration(finite=False):
 def run_q_algo(rm_files, map_name, obj_name, options, out_dir, finite=False):
     rm_env = FrozenLakeRMEnv(
         rm_files, map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
-        all_acts=options["all_acts"]
+        all_acts=True
     )
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
 
@@ -116,7 +113,52 @@ def run_q_algo(rm_files, map_name, obj_name, options, out_dir, finite=False):
         ql = QLearning(rm_env, **options)
     return ql.learn()
 
-def infinite_horizon_experiments(task_num):
+def finite_horizon_experiments(task_num, horizon, n_rollout_steps, seed=None):
+    rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
+    map_name = "5x5"
+    obj_name = f"objects_t{task_num}"
+    out_dir = "results"
+
+    policy_info = {}
+    for use_t in [False, True]:
+        for use_crm in [False, True]:
+            alg_prefix = "Q"
+            if use_t:
+                alg_prefix += "T"
+            if use_crm:
+                alg_prefix += "RM"
+            alg_name = alg_prefix + "-learning"
+            options = {
+                "seed": seed,
+                "lr": 0.1,
+                "gamma": 1,
+                "epsilon": 0.1,
+                "n_episodes": 20000,
+                "n_rollout_steps": n_rollout_steps,
+                # Only gets used in QTlearning
+                "horizon": horizon,
+                "use_t": use_t,
+                "use_crm": use_crm,
+                "use_rs": False,
+                "print_freq": 10000,
+                "eval_freq": 200,
+                "num_eval_eps": 30,
+            }
+
+            policy_info[alg_name] = run_q_algo(
+                rm_files, map_name, obj_name, options, out_dir, finite=True
+            )
+    with open(f"{out_dir}/fin_t{task_num}.json", "w") as f:
+        json.dump(policy_info, f, indent=4)
+
+    with open(f"{out_dir}/fin_t{task_num}.json") as f:
+        policy_info = json.load(f)
+    
+
+    plotting.plot_rewards(policy_info, out_dir, f"Task{task_num}", "finite")
+    # print(policy_info)
+
+def infinite_horizon_experiments(task_num=2, seed=None):
     rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
     map_name = "5x5"
     obj_name = f"objects_t{task_num}"
@@ -124,34 +166,30 @@ def infinite_horizon_experiments(task_num):
 
     policy_info = {}
     for use_crm in [False, True]:
-        # CRM == Qlearning for task 1
-        if task_num == 1 and use_crm:
-            continue
-        alg_name = "CRM" if use_crm else "qlearning"
+        alg_name = "CRM" if use_crm else "Q-learning"
         options = {
             "seed": seed,
             "lr": 0.1,
             "gamma": 0.99,
             "epsilon": 0.1,
             "n_episodes": 20000,
-            # Only gets used in QLearning
-            "n_rollout_steps": 1000,
+            "n_rollout_steps": 50,
             # Only gets used in QTlearning
             "horizon": 10,
             "use_crm": use_crm,
             "use_rs": False,
             "print_freq": 10000,
-            "eval_freq": 500,
+            "eval_freq": 200,
             "num_eval_eps": 30,
-            "all_acts": True,
         }
 
         policy_info[alg_name] = run_q_algo(
             rm_files, map_name, obj_name, options, out_dir, finite=False
         )
+    with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json", "w") as f:
+        json.dump(policy_info, f)
 
-    plotting.plot_rewards(policy_info, out_dir, f"Task{task_num}")
-    print(policy_info)
+    plotting.plot_rewards(policy_info, out_dir, f"Task{task_num}", "infinite")
     # return
     # qs = {}
     # for k in ql.q:
@@ -162,14 +200,30 @@ def infinite_horizon_experiments(task_num):
 
     # rollout_model(rm_env, ql, num_eps=1, horizon=options["horizon"])
 
+def heuristic_experiments():
+    # Reducing reward discount factor
+    # for gamma in [0.6, 0.75, 0.9, 1]:
+    #     run_value_iteration(task_name="t1", horizon=None, gamma=gamma)
+
+    # Step-based penalties
+    run_value_iteration(task_num=1, step_penalty=0.1, horizon=None, gamma=0.999)
+
 
 if __name__ == "__main__":
     start = time.time()
     seed = 36
-    # run_value_iteration(finite=True)
+
+    # run_value_iteration(task_num=1, step_penalty=None, horizon=None, gamma=0.8)
+    # run_value_iteration(task_num=1, step_penalty=None, horizon=10, gamma=1)
+
     # run_q_algo(finite=False)
-    for i in range(1, 4):
-        infinite_horizon_experiments(i)
+    for i in [2]:
+        infinite_horizon_experiments(task_num=i, seed=seed)
+    # finite_horizon_experiments(task_num=2, horizon=6, n_rollout_steps=15, seed=seed)
+    # finite_horizon_experiments(task_num=3, horizon=15, n_rollout_steps=40, seed=seed)
+
+    # heuristic_experiments()
+
     # run_always_down()
     # run_a2c()
     print("Time taken:", time.time() - start)
