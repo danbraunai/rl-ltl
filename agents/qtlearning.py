@@ -13,7 +13,7 @@ class QTLearning:
                  lr=0.1,
                  gamma=1,
                  epsilon=0.1,
-                 n_episodes=1000,
+                 total_steps=1000,
                  horizon=20,
                  n_rollout_steps=20,
                  use_t=True,
@@ -30,7 +30,7 @@ class QTLearning:
         self.lr = lr
         self.gamma = gamma
         self.epsilon = epsilon
-        self.n_episodes = n_episodes
+        self.total_steps = total_steps
         self.horizon = horizon
         self.n_rollout_steps = n_rollout_steps
         self.use_t = use_t
@@ -48,10 +48,12 @@ class QTLearning:
         """
         policy_info = {"samples": [], "updates": [], "rewards": []}
         reward_total = 0
+        eval_eps = 0
         step = 0
         updates = 0
-        for ep in range(self.n_episodes):
+        while step < self.total_steps:
             s = tuple(self.env.reset())
+            eval_eps += 1
             # Iterate through steps remaining
             for t in range(self.n_rollout_steps, 0, -1):
                 if (t, s) not in self.q:
@@ -63,6 +65,10 @@ class QTLearning:
                 sn, r, done, info = self.env.step(a)
                 sn = tuple(sn)
 
+                # moving to the next state
+                if t <= self.horizon:
+                    reward_total += r
+                step += 1
                 # Updating the q-values
                 experiences = []
                 if self.use_crm:
@@ -102,23 +108,22 @@ class QTLearning:
                     self.q[(_t, _s)][_a] += self.lr * _delta
                     updates += 1
 
-                # moving to the next state
-                if t <= self.horizon:
-                    reward_total += r
-                step += 1
                 if step % self.print_freq == 0:
                     print("steps", step)
-                    print("episodes", ep + 1)
+                    print("eval_eps", eval_eps)
                     print("total reward", reward_total)
-                if done:
+                if step % self.eval_freq == 0:
+                    # Evaluate the current policy
+                    policy_info["samples"].append(step)
+                    policy_info["updates"].append(updates)
+                    # policy_info["rewards"].append(reward_total / self.eval_freq)
+                    policy_info["rewards"].append(reward_total / eval_eps)
+                    # policy_info["rewards"].append(self.eval_policy())
+                    reward_total = 0
+                    eval_eps = 0
+                if done or step == self.total_steps:
                     break
                 s = sn
-            if self.eval_freq is not None and (ep + 1) % self.eval_freq == 0:
-                # Evaluate the current policy
-                policy_info["samples"].append(step)
-                policy_info["updates"].append(updates)
-                policy_info["rewards"].append(reward_total / self.eval_freq)
-                reward_total = 0
         return policy_info
 
     def predict(self, info, deterministic=False):

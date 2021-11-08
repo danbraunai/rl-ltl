@@ -118,6 +118,7 @@ def finite_horizon_experiments(task_num, horizon, n_rollout_steps, seed=None):
     map_name = "5x5"
     obj_name = f"objects_t{task_num}"
     out_dir = "results"
+    num_runs = 2
 
     policy_info = {}
     for use_t in [False, True]:
@@ -128,30 +129,34 @@ def finite_horizon_experiments(task_num, horizon, n_rollout_steps, seed=None):
             if use_crm:
                 alg_prefix += "RM"
             alg_name = alg_prefix + "-learning"
-            options = {
-                "seed": seed,
-                "lr": 0.1,
-                "gamma": 1,
-                "epsilon": 0.1,
-                "n_episodes": 20000,
-                "n_rollout_steps": n_rollout_steps,
-                # Only gets used in QTlearning
-                "horizon": horizon,
-                "use_t": use_t,
-                "use_crm": use_crm,
-                "use_rs": False,
-                "print_freq": 10000,
-                "eval_freq": 200,
-                "num_eval_eps": 30,
-            }
+            policy_info[alg_name] = {}
+            for i in range(num_runs):
+                print(f"Run: {i} with {alg_name}")
+                seed += 1
+                options = {
+                    "seed": seed,
+                    "lr": 0.1,
+                    "gamma": 1,
+                    "epsilon": 0.1,
+                    "total_steps": 200000,
+                    "n_rollout_steps": n_rollout_steps,
+                    # Only gets used in QTlearning
+                    "horizon": horizon,
+                    "use_t": use_t,
+                    "use_crm": use_crm,
+                    "use_rs": False,
+                    "print_freq": 50000,
+                    "eval_freq": 5000,
+                    "num_eval_eps": 30,
+                }
 
-            policy_info[alg_name] = run_q_algo(
-                rm_files, map_name, obj_name, options, out_dir, finite=True
-            )
-    with open(f"{out_dir}/fin_t{task_num}.json", "w") as f:
-        json.dump(policy_info, f, indent=4)
+    #             policy_info[alg_name][str(i)] = run_q_algo(
+    #                 rm_files, map_name, obj_name, options, out_dir, finite=True
+    #             )
+    # with open(f"{out_dir}/fin_t{task_num}_{TODAY}.json", "w") as f:
+    #     json.dump(policy_info, f, indent=4)
 
-    with open(f"{out_dir}/fin_t{task_num}.json") as f:
+    with open(f"{out_dir}/fin_t{task_num}_{TODAY}.json") as f:
         policy_info = json.load(f)
     
 
@@ -163,31 +168,39 @@ def infinite_horizon_experiments(task_num=2, seed=None):
     map_name = "5x5"
     obj_name = f"objects_t{task_num}"
     out_dir = "results"
+    num_runs = 20
 
     policy_info = {}
     for use_crm in [False, True]:
         alg_name = "CRM" if use_crm else "Q-learning"
-        options = {
-            "seed": seed,
-            "lr": 0.1,
-            "gamma": 0.99,
-            "epsilon": 0.1,
-            "n_episodes": 20000,
-            "n_rollout_steps": 50,
-            # Only gets used in QTlearning
-            "horizon": 10,
-            "use_crm": use_crm,
-            "use_rs": False,
-            "print_freq": 10000,
-            "eval_freq": 200,
-            "num_eval_eps": 30,
-        }
+        policy_info[alg_name] = {}
+        for i in range(num_runs):
+            print(f"Run: {i} with {alg_name}")
+            seed += 1
+            options = {
+                "seed": seed,
+                "lr": 0.1,
+                "gamma": 0.99,
+                "epsilon": 0.1,
+                "total_steps": 200000,
+                "n_rollout_steps": 50,
+                # Only gets used in QTlearning
+                "horizon": 10,
+                "use_crm": use_crm,
+                "use_rs": False,
+                "print_freq": 50000,
+                "eval_freq": 5000,
+                "num_eval_eps": 30,
+            }
 
-        policy_info[alg_name] = run_q_algo(
-            rm_files, map_name, obj_name, options, out_dir, finite=False
-        )
-    with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json", "w") as f:
-        json.dump(policy_info, f)
+    #         policy_info[alg_name][str(i)] = run_q_algo(
+    #             rm_files, map_name, obj_name, options, out_dir, finite=False
+    #         )
+    # with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json", "w") as f:
+    #     json.dump(policy_info, f)
+
+    with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json") as f:
+        policy_info = json.load(f)
 
     plotting.plot_rewards(policy_info, out_dir, f"Task{task_num}", "infinite")
     # return
@@ -217,10 +230,10 @@ if __name__ == "__main__":
     # run_value_iteration(task_num=1, step_penalty=None, horizon=10, gamma=1)
 
     # run_q_algo(finite=False)
-    for i in [2]:
-        infinite_horizon_experiments(task_num=i, seed=seed)
-    # finite_horizon_experiments(task_num=2, horizon=6, n_rollout_steps=15, seed=seed)
-    # finite_horizon_experiments(task_num=3, horizon=15, n_rollout_steps=40, seed=seed)
+    # for i in [2, 3]:
+    #     infinite_horizon_experiments(task_num=i, seed=seed)
+    finite_horizon_experiments(task_num=2, horizon=6, n_rollout_steps=15, seed=seed)
+    finite_horizon_experiments(task_num=3, horizon=15, n_rollout_steps=40, seed=seed)
 
     # heuristic_experiments()
 
