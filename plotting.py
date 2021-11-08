@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-TODAY = datetime.datetime.now().strftime("%d-%m-%Y")
+TODAY = datetime.datetime.now().strftime("%d-%m-%y")
 
 
 def plot_rewards(data, out_dir, task_name, mdp_type):

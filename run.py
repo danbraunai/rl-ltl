@@ -1,5 +1,6 @@
 import time
 import datetime
+import multiprocessing
 import json
 import numpy as np
 import gym
@@ -13,7 +14,7 @@ from reward_machines.rm_environment import RewardMachineEnv, RewardMachineWrappe
 import utils
 import plotting
 
-TODAY = datetime.datetime.now().strftime("%d-%m-%Y")
+TODAY = datetime.datetime.now().strftime("%d-%m-%y")
 
 def run_always_down():
     env = FrozenLake(map_name="5x5", slip=0.5)
@@ -94,13 +95,13 @@ def run_value_iteration(task_num, step_penalty=0, horizon=None, gamma=1):
             optim_vals, optim_pol, rm_env.env.desc.shape, len(rm.get_states()), horizon=None
         )
     print(v)
-    for i in range(pol.shape[0]):
-        print(i, pol[i], "\n")
+    # for i in range(pol.shape[0]):
+        # print(i, pol[i], "\n")
     # print(pol)
     print(n_iter)
 
 
-def run_q_algo(rm_files, map_name, obj_name, options, out_dir, finite=False):
+def run_q_algo(options, rm_files, map_name, obj_name, out_dir, finite=False):
     rm_env = FrozenLakeRMEnv(
         rm_files, map_name=map_name, obj_name=obj_name, slip=0.5, seed=options["seed"],
         all_acts=True
@@ -111,16 +112,17 @@ def run_q_algo(rm_files, map_name, obj_name, options, out_dir, finite=False):
         ql = QTLearning(rm_env, **options)
     else:
         ql = QLearning(rm_env, **options)
-    return ql.learn()
+    # Since starmap_async returns in any order, we must identify the algorithm
+    return options["alg_name"], ql.learn()
 
 def finite_horizon_experiments(task_num, horizon, n_rollout_steps, seed=None):
     rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
     map_name = "5x5"
     obj_name = f"objects_t{task_num}"
     out_dir = "results"
-    num_runs = 2
+    num_runs = 30
 
-    policy_info = {}
+    run_options = []
     for use_t in [False, True]:
         for use_crm in [False, True]:
             alg_prefix = "Q"
@@ -129,11 +131,11 @@ def finite_horizon_experiments(task_num, horizon, n_rollout_steps, seed=None):
             if use_crm:
                 alg_prefix += "RM"
             alg_name = alg_prefix + "-learning"
-            policy_info[alg_name] = {}
             for i in range(num_runs):
                 print(f"Run: {i} with {alg_name}")
                 seed += 1
                 options = {
+                    "alg_name": alg_name,
                     "seed": seed,
                     "lr": 0.1,
                     "gamma": 1,
@@ -149,35 +151,38 @@ def finite_horizon_experiments(task_num, horizon, n_rollout_steps, seed=None):
                     "eval_freq": 5000,
                     "num_eval_eps": 30,
                 }
+                run_options.append(options)
 
-    #             policy_info[alg_name][str(i)] = run_q_algo(
-    #                 rm_files, map_name, obj_name, options, out_dir, finite=True
-    #             )
-    # with open(f"{out_dir}/fin_t{task_num}_{TODAY}.json", "w") as f:
-    #     json.dump(policy_info, f, indent=4)
+    q_args = [[opt] + [rm_files, map_name, obj_name, out_dir, True] for opt in run_options] 
+    with multiprocessing.Pool(multiprocessing.cpu_count()-2) as pool:
+        results = pool.starmap(run_q_algo, q_args)
+
+    results_dict = utils.combine_results(results)
+
+    with open(f"{out_dir}/fin_t{task_num}_{TODAY}.json", "w") as f:
+        json.dump(results_dict, f, indent=4)
 
     with open(f"{out_dir}/fin_t{task_num}_{TODAY}.json") as f:
-        policy_info = json.load(f)
+        results_dict = json.load(f)
     
 
-    plotting.plot_rewards(policy_info, out_dir, f"Task{task_num}", "finite")
-    # print(policy_info)
+    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "finite")
 
 def infinite_horizon_experiments(task_num=2, seed=None):
     rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
     map_name = "5x5"
     obj_name = f"objects_t{task_num}"
     out_dir = "results"
-    num_runs = 20
+    num_runs = 30
 
-    policy_info = {}
+    run_options = []
     for use_crm in [False, True]:
         alg_name = "CRM" if use_crm else "Q-learning"
-        policy_info[alg_name] = {}
         for i in range(num_runs):
             print(f"Run: {i} with {alg_name}")
             seed += 1
             options = {
+                "alg_name": alg_name,
                 "seed": seed,
                 "lr": 0.1,
                 "gamma": 0.99,
@@ -192,26 +197,21 @@ def infinite_horizon_experiments(task_num=2, seed=None):
                 "eval_freq": 5000,
                 "num_eval_eps": 30,
             }
+            run_options.append(options)
 
-    #         policy_info[alg_name][str(i)] = run_q_algo(
-    #             rm_files, map_name, obj_name, options, out_dir, finite=False
-    #         )
-    # with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json", "w") as f:
-    #     json.dump(policy_info, f)
+    q_args = [[opt] + [rm_files, map_name, obj_name, out_dir] for opt in run_options] 
+    with multiprocessing.Pool(multiprocessing.cpu_count()-2) as pool:
+        results = pool.starmap(run_q_algo, q_args)
+
+    results_dict = utils.combine_results(results)
+
+    with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json", "w") as f:
+        json.dump(results_dict, f)
 
     with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json") as f:
-        policy_info = json.load(f)
+        results_dict = json.load(f)
 
-    plotting.plot_rewards(policy_info, out_dir, f"Task{task_num}", "infinite")
-    # return
-    # qs = {}
-    # for k in ql.q:
-    #     qs[f"{k}"] = ql.q[k]
-    # import json
-    # with open(f"{out_dir}/qs.json", "w") as f:
-    #     json.dump(qs, f, indent=4)
-
-    # rollout_model(rm_env, ql, num_eps=1, horizon=options["horizon"])
+    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "infinite")
 
 def heuristic_experiments():
     # Reducing reward discount factor
@@ -227,13 +227,13 @@ if __name__ == "__main__":
     seed = 36
 
     # run_value_iteration(task_num=1, step_penalty=None, horizon=None, gamma=0.8)
-    # run_value_iteration(task_num=1, step_penalty=None, horizon=10, gamma=1)
+    # run_value_iteration(task_num=3, step_penalty=None, horizon=15, gamma=1)
 
     # run_q_algo(finite=False)
-    # for i in [2, 3]:
-    #     infinite_horizon_experiments(task_num=i, seed=seed)
+    # for i in [2]:
+        # infinite_horizon_experiments(task_num=i, seed=seed)
     finite_horizon_experiments(task_num=2, horizon=6, n_rollout_steps=15, seed=seed)
-    finite_horizon_experiments(task_num=3, horizon=15, n_rollout_steps=40, seed=seed)
+    # finite_horizon_experiments(task_num=3, horizon=15, n_rollout_steps=40, seed=seed)
 
     # heuristic_experiments()
 

@@ -86,3 +86,20 @@ def scalarize_rewards(rm_files, weights):
                     re.sub(r"(?<=Function\()(.*?)(?=\))", str(scaled_rewards.pop(0)), line) + "\n"
                 )
     return comb_filename
+
+def combine_results(data):
+    """
+    Convert a list of tuples of the form
+    [(alg_name, {samples: [...], updates: [...], rewards: [...]}),...] to a dictionary of the form
+    {alg_name: {samples: [...], updates: [...], rewards: [[...],[...],...]}}
+    """
+    res_dict = {}
+    for alg, d in data:
+        try:
+            res_dict[alg]["rewards"].append(d["rewards"])
+        except KeyError:
+            # alg has not beed added to res_dict
+            res_dict[alg] = {
+                "samples": d["samples"], "updates": d["updates"], "rewards": [d["rewards"]]
+            }
+    return res_dict
