@@ -28,12 +28,12 @@ def run_always_down():
             print("Rollout finished.")
             break
 
-# def run_a2c():
-#     env = FrozenLake(map_name="5x5", slip=0.5)
-#     # With gamma<1, agent learns to only go DownRight in s3
-#     model = A2C('MlpPolicy', env, gamma=0.99, verbose=1)
-#     model.learn(total_timesteps=10000)
-#     rollout_model(env, model)
+def run_a2c():
+    env = FrozenLake(map_name="5x5", slip=0.5)
+    # With gamma<1, agent learns to only go DownRight in s3
+    model = A2C('MlpPolicy', env, gamma=0.99, verbose=1)
+    model.learn(total_timesteps=10000)
+    rollout_model(env, model)
 
 def rollout_model(env, model, num_eps=1, horizon=20):
     for ep in range(num_eps):
@@ -99,6 +99,7 @@ def run_value_iteration(task_num, step_penalty=0, horizon=None, gamma=1):
         # print(i, pol[i], "\n")
     # print(pol)
     print(n_iter)
+    return v
 
 
 def run_q_algo(options, rm_files, map_name, obj_name, out_dir, finite=False):
@@ -107,111 +108,134 @@ def run_q_algo(options, rm_files, map_name, obj_name, out_dir, finite=False):
         all_acts=True
     )
     rm_env = RewardMachineWrapper(rm_env, options["use_crm"], options["use_rs"], options["gamma"], 1)
-
     if finite:
         ql = QTLearning(rm_env, **options)
     else:
         ql = QLearning(rm_env, **options)
-    # Since starmap_async returns in any order, we must identify the algorithm
-    return options["alg_name"], ql.learn()
+    # Since starmap returns in any order, we must identify the algorithm
+    return options["alg_name"], ql.learn(), ql.q
 
-def finite_horizon_experiments(task_num, horizon, n_rollout_steps, seed=None):
+def finite_horizon_experiments(task_num, horizon, eps_per_reset, total_steps, lr=0.1, lr_decay=0.9,
+                               lr_decay_freq=100000, seed=None, file_date=None):
     rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
     map_name = "5x5"
     obj_name = f"objects_t{task_num}"
     out_dir = "results"
     num_runs = 30
+    optimal_vals = run_value_iteration(task_num, step_penalty=0, horizon=horizon, gamma=1)
+    # Get the optimal value corresponding to the first env and RM state at the horizon.
+    # This corresponds to the probability of completing the task and the optimal expected reward
+    # (assuming the only initial state is at (0,0))
+    optimal_reward = optimal_vals[-1][0][0, 0]
 
-    run_options = []
-    for use_t in [False, True]:
-        for use_crm in [False, True]:
-            alg_prefix = "Q"
-            if use_t:
-                alg_prefix += "T"
-            if use_crm:
-                alg_prefix += "RM"
-            alg_name = alg_prefix + "-learning"
+    date = file_date or TODAY
+    if not file_date:
+        run_options = []
+        for use_t in [True, False]:
+            for use_crm in [True, False]:
+                alg_prefix = "Q"
+                if use_t:
+                    alg_prefix += "T"
+                if use_crm:
+                    alg_prefix += "RM"
+                alg_name = alg_prefix + "-learning"
+                for i in range(num_runs):
+                    seed += 1
+                    options = {
+                        "alg_name": alg_name,
+                        "seed": seed,
+                        "lr": lr,
+                        "lr_decay": lr_decay,
+                        "lr_decay_freq": lr_decay_freq,
+                        "gamma": 1,
+                        "epsilon": 0.1,
+                        "total_steps": total_steps,
+                        "eps_per_reset": eps_per_reset,
+                        # Only gets used in QTlearning
+                        "horizon": horizon,
+                        "use_t": use_t,
+                        "use_crm": use_crm,
+                        "use_rs": False,
+                        "print_freq": 5000000,
+                        "eval_freq": 10000,
+                        "num_eval_eps": 50,
+                        "q_init": 1.0001,
+                    }
+                    run_options.append(options)
+
+        print(f"Running task {task_num} in finite horizon setting")
+        # run_q_algo(options, rm_files, map_name, obj_name, out_dir, True)
+        q_args = [[opt] + [rm_files, map_name, obj_name, out_dir, True] for opt in run_options] 
+        with multiprocessing.Pool(multiprocessing.cpu_count()-2) as pool:
+            results = pool.starmap(run_q_algo, q_args)
+
+        results_dict = utils.combine_results(results)
+
+        with open(f"{out_dir}/fin_t{task_num}_{date}.json", "w") as f:
+            json.dump(results_dict, f, indent=4)
+
+    with open(f"{out_dir}/fin_t{task_num}_{date}.json") as f:
+        results_dict = json.load(f)
+    
+
+    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "finite", optimal_reward, date)
+
+def infinite_horizon_experiments(task_num, total_steps, gamma=0.99, lr=0.01, lr_decay=0.9,
+                                 lr_decay_freq=200000, seed=None, file_date=None):
+    rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
+    map_name = "5x5"
+    obj_name = f"objects_t{task_num}"
+    out_dir = "results"
+    num_runs = 30
+    optimal_vals = run_value_iteration(task_num, step_penalty=0, horizon=None, gamma=gamma)
+    # Get the optimal value corresponding to the first env and RM state. This corresponds to the
+    # probability of completing the task and the optimal expected reward
+    # (assuming the only initial state is at (0,0))
+    optimal_reward = optimal_vals[0][0, 0]
+
+    date = file_date or TODAY
+    if not file_date:
+        run_options = []
+        for use_crm in [True]:
+            alg_name = "CRM" if use_crm else "Q-learning"
             for i in range(num_runs):
-                print(f"Run: {i} with {alg_name}")
                 seed += 1
                 options = {
                     "alg_name": alg_name,
                     "seed": seed,
-                    "lr": 0.1,
-                    "gamma": 1,
+                    "lr": lr,
+                    "lr_decay": lr_decay,
+                    "lr_decay_freq": lr_decay_freq,
+                    "gamma": gamma,
                     "epsilon": 0.1,
-                    "total_steps": 200000,
-                    "n_rollout_steps": n_rollout_steps,
+                    "total_steps": total_steps,
+                    "n_rollout_steps": 50,
                     # Only gets used in QTlearning
-                    "horizon": horizon,
-                    "use_t": use_t,
+                    "horizon": None,
                     "use_crm": use_crm,
                     "use_rs": False,
-                    "print_freq": 50000,
-                    "eval_freq": 5000,
-                    "num_eval_eps": 30,
+                    "print_freq": 5000000,
+                    "eval_freq": 10000,
+                    "num_eval_eps": 50,
+                    "q_init": 1.0001,
                 }
                 run_options.append(options)
 
-    q_args = [[opt] + [rm_files, map_name, obj_name, out_dir, True] for opt in run_options] 
-    with multiprocessing.Pool(multiprocessing.cpu_count()-2) as pool:
-        results = pool.starmap(run_q_algo, q_args)
+        print(f"Running task {task_num} in infinite horizon setting")
+        # run_q_algo(options, rm_files, map_name, obj_name, out_dir, False)
+        q_args = [[opt] + [rm_files, map_name, obj_name, out_dir] for opt in run_options] 
+        with multiprocessing.Pool(multiprocessing.cpu_count()-2) as pool:
+            results = pool.starmap(run_q_algo, q_args)
 
-    results_dict = utils.combine_results(results)
+        results_dict = utils.combine_results(results)
 
-    with open(f"{out_dir}/fin_t{task_num}_{TODAY}.json", "w") as f:
-        json.dump(results_dict, f, indent=4)
+        with open(f"{out_dir}/inf_t{task_num}_{date}.json", "w") as f:
+            json.dump(results_dict, f, indent=4)
 
-    with open(f"{out_dir}/fin_t{task_num}_{TODAY}.json") as f:
-        results_dict = json.load(f)
-    
-
-    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "finite")
-
-def infinite_horizon_experiments(task_num=2, seed=None):
-    rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
-    map_name = "5x5"
-    obj_name = f"objects_t{task_num}"
-    out_dir = "results"
-    num_runs = 30
-
-    run_options = []
-    for use_crm in [False, True]:
-        alg_name = "CRM" if use_crm else "Q-learning"
-        for i in range(num_runs):
-            print(f"Run: {i} with {alg_name}")
-            seed += 1
-            options = {
-                "alg_name": alg_name,
-                "seed": seed,
-                "lr": 0.1,
-                "gamma": 0.99,
-                "epsilon": 0.1,
-                "total_steps": 200000,
-                "n_rollout_steps": 50,
-                # Only gets used in QTlearning
-                "horizon": 10,
-                "use_crm": use_crm,
-                "use_rs": False,
-                "print_freq": 50000,
-                "eval_freq": 5000,
-                "num_eval_eps": 30,
-            }
-            run_options.append(options)
-
-    q_args = [[opt] + [rm_files, map_name, obj_name, out_dir] for opt in run_options] 
-    with multiprocessing.Pool(multiprocessing.cpu_count()-2) as pool:
-        results = pool.starmap(run_q_algo, q_args)
-
-    results_dict = utils.combine_results(results)
-
-    with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json", "w") as f:
-        json.dump(results_dict, f)
-
-    with open(f"{out_dir}/inf_t{task_num}_{TODAY}.json") as f:
+    with open(f"{out_dir}/inf_t{task_num}_{date}.json") as f:
         results_dict = json.load(f)
 
-    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "infinite")
+    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "infinite", optimal_reward, date)
 
 def heuristic_experiments():
     # Reducing reward discount factor
@@ -224,16 +248,28 @@ def heuristic_experiments():
 
 if __name__ == "__main__":
     start = time.time()
-    seed = 36
+    seed = 42
 
-    # run_value_iteration(task_num=1, step_penalty=None, horizon=None, gamma=0.8)
-    # run_value_iteration(task_num=3, step_penalty=None, horizon=15, gamma=1)
+    # run_value_iteration(task_num=2, step_penalty=0, horizon=None, gamma=0.99)
+    # run_value_iteration(task_num=3, step_penalty=0, horizon=None, gamma=0.1)
 
-    # run_q_algo(finite=False)
-    # for i in [2]:
-        # infinite_horizon_experiments(task_num=i, seed=seed)
-    finite_horizon_experiments(task_num=2, horizon=6, n_rollout_steps=15, seed=seed)
-    # finite_horizon_experiments(task_num=3, horizon=15, n_rollout_steps=40, seed=seed)
+
+    infinite_horizon_experiments(
+        task_num=2, total_steps=1000000, gamma=0.99, lr=0.01, lr_decay=0.9, lr_decay_freq=200000,
+        seed=seed, file_date="12-11-21"
+    )
+    infinite_horizon_experiments(
+        task_num=3, total_steps=4000000, gamma=0.99, lr=0.01, lr_decay=0.9, lr_decay_freq=200000,
+        seed=seed, file_date="12-11-21"
+    )
+    # finite_horizon_experiments(
+    #     task_num=2, horizon=6, eps_per_reset=3, total_steps=1000000, lr=0.1, lr_decay=0.9, lr_decay_freq=100000,
+    #     seed=seed, file_date="11-11-21"
+    # )
+    # finite_horizon_experiments(
+    #     task_num=3, horizon=15, eps_per_reset=3, total_steps=4000000, lr=0.1, lr_decay=0.9, lr_decay_freq=100000,
+    #     seed=seed, file_date="11-11-21"
+    # )
 
     # heuristic_experiments()
 

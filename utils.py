@@ -94,12 +94,13 @@ def combine_results(data):
     {alg_name: {samples: [...], updates: [...], rewards: [[...],[...],...]}}
     """
     res_dict = {}
-    for alg, d in data:
+    for alg, d, qs in data:
+        qs_str = {str(k): v for k, v in qs.items()}
         try:
             res_dict[alg]["rewards"].append(d["rewards"])
         except KeyError:
             # alg has not beed added to res_dict
             res_dict[alg] = {
-                "samples": d["samples"], "updates": d["updates"], "rewards": [d["rewards"]]
+                "samples": d["samples"], "updates": d["updates"], "qs": qs_str, "rewards": [d["rewards"]]
             }
     return res_dict

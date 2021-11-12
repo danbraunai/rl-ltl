@@ -2,6 +2,7 @@
 Q-Learning implementation.
 """
 import random
+from copy import deepcopy
 import numpy as np
 from utils import set_random_seed
 
@@ -11,15 +12,18 @@ class QLearning:
                  env,
                  seed=None,
                  lr=0.1,
+                 lr_decay=0.85,
+                 lr_decay_freq=200000,
                  gamma=1,
                  epsilon=0.1,
-                 total_steps=200000,
+                 total_steps=2000000,
                  n_rollout_steps=1000,
                  use_crm=True,
                  use_rs=False,
                  print_freq=50000,
                  eval_freq=5000,
                  num_eval_eps=20,
+                 q_init=1.0001,
                  **_):
         # Set global seed for reproducibility
         if seed is not None:
@@ -27,6 +31,8 @@ class QLearning:
 
         self.env = env
         self.lr = lr
+        self.lr_decay = lr_decay
+        self.lr_decay_freq = lr_decay_freq
         self.gamma = gamma
         self.epsilon = epsilon
         self.total_steps = total_steps
@@ -36,6 +42,9 @@ class QLearning:
         self.print_freq = print_freq
         self.eval_freq = eval_freq
         self.num_eval_eps = num_eval_eps
+        # For evaluation
+        self.env_copy = deepcopy(env)
+        self.q_init = q_init
         self.q = {}
 
     def learn(self):
@@ -44,66 +53,55 @@ class QLearning:
         https://github.com/RodrigoToroIcarte/reward_machines.
         """
         policy_info = {"samples": [], "updates": [], "rewards": []}
-        reward_total = 0
-        eval_eps = 0
+
         step = 0
         updates = 0
         while step < self.total_steps:
+            # Reset to initial (env and RM) state
             s = tuple(self.env.reset())
-            eval_eps += 1
             if s not in self.q:
-                self.q[s] = [0] * self.env.action_space.n
+                self.q[s] = [self.q_init] * self.env.action_space.n
             for _ in range(self.n_rollout_steps):
                 # Get epsilon-greedy action
                 a, _ = self.predict(s, deterministic=False)
                 # Take step in envrionment
                 sn, r, done, info = self.env.step(a)
                 sn = tuple(sn)
-
-                # Collect the undiscounted reward
-                reward_total += r
                 step += 1
+
+                # Reduce the learning rate
+                if step % self.lr_decay_freq == 0:
+                    self.lr *= self.lr_decay
+
                 # Updating the q-values
                 experiences = []
                 if self.use_crm:
-                    # Adding counterfactual experience (this will already include shaped rewards
-                    # if use_rs=True)
+                    # Adding counterfactual experience for all reward machine states
                     for _s, _a, _r, _sn, _done in info["crm-experience"]:
                         experiences.append((tuple(_s), _a, _r, tuple(_sn), _done))
-                elif self.use_rs:
-                    # Include only the current experince but shape the reward
-                    experiences = [(s, a, info["rs-reward"], sn, done)]
                 else:
                     # Include only the current experience (standard q-learning)
-                    experiences = [(s, a, r, sn, done)]
+                    experiences.append((s, a, r, sn, done))
 
                 for _s, _a, _r, _sn, _done in experiences:
-                    # if _s not in Q: Q[_s] = dict([(b,q_init) for b in actions])
                     if _s not in self.q:
-                        self.q[_s] = [0] * self.env.action_space.n
+                        self.q[_s] = [self.q_init] * self.env.action_space.n
                     if _sn not in self.q:
-                        self.q[_sn] = [0] * self.env.action_space.n
+                        self.q[_sn] = [self.q_init] * self.env.action_space.n
                     if _done:
                         _delta = _r - self.q[_s][_a]
                     else:
-                        # _delta = _r + self.gamma * get_qmax(Q, _sn,actions,q_init) - Q[_s][_a]
                         _delta = _r + self.gamma * np.max(self.q[_sn]) - self.q[_s][_a]
                     self.q[_s][_a] += self.lr * _delta
                     updates += 1
 
-                if step % self.print_freq == 0:
-                    print("steps", step)
-                    print("eval_eps", eval_eps)
-                    print("total reward", reward_total)
                 if step % self.eval_freq == 0:
                     # Evaluate the current policy
                     policy_info["samples"].append(step)
                     policy_info["updates"].append(updates)
                     # policy_info["rewards"].append(reward_total / self.eval_freq)
-                    policy_info["rewards"].append(reward_total / eval_eps)
-                    # policy_info["rewards"].append(self.eval_policy())
-                    reward_total = 0
-                    eval_eps = 0
+                    # policy_info["rewards"].append(reward_total / eval_eps)
+                    policy_info["rewards"].append(self.eval_policy())
                 if done or step == self.total_steps:
                     break
                 s = sn
@@ -126,21 +124,21 @@ class QLearning:
     def eval_policy(self):
         """Calculate the mean return of the policy over self.num_eval_eps episodes."""
         total_rewards = 0.
-        dones = 0
-        for ep in range(self.num_eval_eps):
-            s = tuple(self.env.reset())
-            for _ in range(self.n_rollout_steps):
+        for _ in range(self.num_eval_eps):
+            s = tuple(self.env_copy.reset())
+            # Use more rollout steps in evaluation as the policies may have loops and require
+            # some stochasticity.
+            for step in range(self.n_rollout_steps * 3):
                 # If no q-values for this state, initialise them
                 if s not in self.q:
-                    self.q[s] = [0] * self.env.action_space.n
+                    self.q[s] = [self.q_init] * self.env.action_space.n
                 # Must allow for random action to avoid trying to always move off the grid (and
                 # thus staying in the same place)
                 a, _ = self.predict(s, deterministic=True)
-                new_s, r, done, _ = self.env.step(a)
-                total_rewards += r
-                s = tuple(new_s)
-
+                # Take step in env
+                sn, r, done, _ = self.env_copy.step(a)
+                total_rewards += (self.gamma ** step) * r
                 if done:
-                    dones += 1
                     break
+                s = tuple(sn)
         return total_rewards / self.num_eval_eps

@@ -164,8 +164,9 @@ class FrozenLake(Env):
     def _update_probability_matrix(self, row, col, action):
         newrow, newcol = self._get_new_position(row, col, action)
         newletter = self.desc[newrow, newcol]
-        # Env only "done" when fall down hole, other done statuses are handled by reward machine
-        done = (bytes(newletter) in b'H') or (newrow, newcol) == (self.nrow - 1, self.ncol - 1)
+        # Env only "done" when fall down hole or reach bottom right.
+        # Other done statuses are handled by reward machine
+        done = (newletter in b'H') or (newrow, newcol) == (self.nrow - 1, self.ncol - 1)
         # All rewards come from reward machine
         reward = 0
         return (newrow, newcol), reward, done
