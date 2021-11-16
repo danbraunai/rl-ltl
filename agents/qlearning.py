@@ -20,7 +20,6 @@ class QLearning:
                  n_rollout_steps=1000,
                  use_crm=True,
                  use_rs=False,
-                 print_freq=50000,
                  eval_freq=5000,
                  num_eval_eps=20,
                  q_init=1.0001,
@@ -39,7 +38,6 @@ class QLearning:
         self.n_rollout_steps = n_rollout_steps
         self.use_crm = use_crm
         self.use_rs = use_rs
-        self.print_freq = print_freq
         self.eval_freq = eval_freq
         self.num_eval_eps = num_eval_eps
         # For evaluation

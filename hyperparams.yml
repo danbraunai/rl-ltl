@@ -1,0 +1,135 @@
+thesis:
+    # Fig 6.10a,b
+    q_inf_task2:
+        slip: 0.5
+        num_runs: 30
+        total_steps: 1000000
+        horizon: null
+        n_rollout_steps: 50
+        gamma: 0.99
+        lr: 0.01
+        lr_decay: 0.9
+        lr_decay_freq: 20000
+        epsilon: 0.1
+        eval_freq: 10000
+        num_eval_eps: 50
+        q_init: 1.0001
+    # Fig 6.10c,d
+    q_inf_task3:
+        slip: 0.5
+        num_runs: 30
+        total_steps: 4000000
+        horizon: null
+        n_rollout_steps: 50
+        gamma: 0.99
+        lr: 0.01
+        lr_decay: 0.9
+        lr_decay_freq: 20000
+        epsilon: 0.1
+        eval_freq: 10000
+        num_eval_eps: 50
+        q_init: 1.0001
+    # Fig 6.11a,b
+    q_fin_task2:
+        slip: 0.5
+        num_runs: 30
+        total_steps: 1000000
+        horizon: null
+        horizon: 6
+        eps_per_reset: 3
+        gamma: 1.
+        lr: 0.1
+        lr_decay: 0.9
+        lr_decay_freq: 10000
+        epsilon: 0.1
+        eval_freq: 10000
+        num_eval_eps: 50
+        q_init: 1.0001
+    # Fig 6.11c,d
+    q_fin_task3:
+        slip: 0.5
+        num_runs: 30
+        total_steps: 4000000
+        horizon: null
+        horizon: 15
+        eps_per_reset: 3
+        gamma: 1.
+        lr: 0.1
+        lr_decay: 0.9
+        lr_decay_freq: 10000
+        epsilon: 0.1
+        eval_freq: 10000
+        num_eval_eps: 50
+        q_init: 1.0001
+    # Fig 6.5
+    vi_inf_task1:
+        slip: 0.5
+        step_penalty: 0
+        horizon: null
+        gammas: [1]
+    # Fig 6.6
+    vi_inf_task2:
+        slip: 0.5
+        step_penalty: 0
+        horizon: null
+        gammas: [1]
+    # Fig 6.7
+    vi_fin_task1:
+        slip: 0.5
+        step_penalty: 0
+        horizon: 8
+        gammas: [1]
+    # Fig 6.8
+    vidiscount_inf_task1:
+        slip: 0.5
+        step_penalty: 0
+        horizon: null
+        gammas: [0.6, 0.75, 0.9, 1]
+    # Fig 6.9
+    vipenalty_inf_task1:
+        slip: 0.5
+        step_penalty: 0.1
+        horizon: null
+        gammas: [0.999]
+
+play:
+    # Fig 6.10a,b
+    q_inf_task2:
+        slip: 0.5
+        num_runs: 3
+        total_steps: 1000
+        horizon: null
+        n_rollout_steps: 50
+        gamma: 0.99
+        lr: 0.01
+        lr_decay: 0.9
+        lr_decay_freq: 20000
+        epsilon: 0.1
+        eval_freq: 500
+        num_eval_eps: 2
+        q_init: 1.0001
+    q_fin_task2:
+        slip: 0.5
+        num_runs: 3
+        total_steps: 1000
+        horizon: 6
+        eps_per_reset: 3
+        gamma: 1.
+        lr: 0.1
+        lr_decay: 0.9
+        lr_decay_freq: 10000
+        epsilon: 0.1
+        eval_freq: 500
+        num_eval_eps: 2
+        q_init: 1.0001
+    # Fig 6.7
+    vi_fin_task1:
+        slip: 0.5
+        step_penalty: 0
+        horizon: 8
+        gammas: [1]
+    vipenalty_inf_task1:
+        slip: 0.5
+        step_penalty: 0.1
+        horizon: null
+        gammas: [0.99]

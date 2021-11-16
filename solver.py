@@ -102,7 +102,7 @@ def value_iteration_finite(env, rm, gamma, horizon=20, get_policy=True):
         get_policy: Bool indicating whether to calculate the optimal policy given the optimal vals.
     """
 
-    assert len(env.reward_machines) == 1, "Value iteration only supports one reward machine"
+    assert len(env.reward_machines) == 1, "Value iteration currently only supports one reward machine"
     env_states = list(env.P.keys())
     rm_states = rm.get_states()
     # Initialise v, the estimated value at each state.

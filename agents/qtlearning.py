@@ -21,7 +21,6 @@ class QTLearning:
                  eps_per_reset=3,
                  use_t=True,
                  use_crm=True,
-                 print_freq=10000,
                  eval_freq=100,
                  num_eval_eps=30,
                  q_init=1.0001,
@@ -41,7 +40,6 @@ class QTLearning:
         self.eps_per_reset = eps_per_reset
         self.use_t = use_t
         self.use_crm = use_crm
-        self.print_freq = print_freq
         self.eval_freq = eval_freq
         self.num_eval_eps = num_eval_eps
         # For evaluation
