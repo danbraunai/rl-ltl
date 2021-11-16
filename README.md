@@ -10,8 +10,8 @@ The repository contains a custom FrozenLake environment (based on [FrozenLake-v0
 > You and your friends were tossing around a frisbee on a (mostly) frozen lake when your friend fell through the ice trying to take an epic catch. Luckily, somebody left rope on the lake for this exact scenario. You must grab a rope, and go over and pull your friend out of the water. The ice is slippery, so you will not always move in the direction you intend. There are also some areas where the ice is thinner. If you step into one of those traps, you will fall in and drown.
 
 The parameters of the environment are described as follows:
-- Actions: The agent can request to move one step in any of the $8$ directions (Right, Down-Right, Down, ...).
-- Light Blue Squares: Slippery ice, with $50\%$ chance (this is adjustable) of an action leading to the desired state, and $50\%$ chance of transitioning to a state uniformly from all $8$ directions.
+- Actions: The agent can request to move one step in any of the 8 directions (Right, Down-Right, Down, ...).
+- Light Blue Squares: Slippery ice, with 50% chance (this is adjustable) of an action leading to the desired state, and 50% chance of transitioning to a state uniformly from all 8 directions.
 - Green Squares: Safe path, with all actions deterministic and leading to the desired state.
 - Dark Blue Squares: Trap, where the agent would fall in and get stuck perpetually.
 - Edge Conditions: If the direction of movement is off the grid, the agent will remain in place.
