@@ -89,7 +89,7 @@ class FrozenLake(Env):
 
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, map_name="5x5", obj_name="objects_v0", slip=0.2, seed=None, all_acts=True):
+    def __init__(self, map_name="5x5", obj_name="objects_t1", slip=0.2, seed=None, all_acts=True):
         """
         Setup environment, including saving all possible state-transitions and their
         probability.
@@ -167,8 +167,9 @@ class FrozenLake(Env):
         # Env only "done" when fall down hole or reach bottom right.
         # Other done statuses are handled by reward machine
         done = (newletter in b'H') or (newrow, newcol) == (self.nrow - 1, self.ncol - 1)
-        # All rewards come from reward machine
-        reward = 0
+        # All rewards are overwritten by the reward machine, but set a reward of 1 to bottom right
+        # cell for testing other algorithms in this environment
+        reward = 1 if (newrow, newcol) == (self.nrow - 1, self.ncol - 1) else 0
         return (newrow, newcol), reward, done
 
     def get_label(self, state):

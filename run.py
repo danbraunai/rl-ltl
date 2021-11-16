@@ -7,7 +7,7 @@ import multiprocessing
 import json
 import numpy as np
 import gym
-from envs.frozen_lake import FrozenLakeRMEnv
+from envs.frozen_lake import FrozenLakeRMEnv, FrozenLake
 # Uncomment if you wish to test with stable_baselines3. Not used by default due to package size
 # from stable_baselines3 import A2C
 
@@ -49,10 +49,10 @@ def read_args():
 
 def run_always_down():
     env = FrozenLake(map_name="5x5", slip=0.5)
-    go_down = 0
+    go_down_act = 2
     n_rollout_steps = 20
     for step in range(n_rollout_steps):
-        obs, reward, done, _ = env.step(go_down)
+        obs, reward, done, _ = env.step(go_down_act)
         print(f"Step: {step}. Obs: {obs}. Reward: {reward}. Done: {done}")
         env.render()
         if done:
@@ -66,25 +66,15 @@ def run_a2c():
     model.learn(total_timesteps=10000)
     rollout_model(env, model)
 
-def rollout_model(env, model, num_eps=1, horizon=20):
+def rollout_model(env, model, num_eps=1, n_steps=20):
     for ep in range(num_eps):
         s = tuple(env.reset())
         env.render()
-        for t in range(horizon, 0, -1):
-            if horizon:
-                # If no q-values for this state, add them
-                if (t, s) not in model.q:
-                    model.q[(t, s)] = [0] * model.env.action_space.n
-                a, _ = model.predict((t, s), deterministic=True)
-            else:
-                # If no q-values for this state, add them
-                if s not in model.q:
-                    model.q[s] = [0] * model.env.action_space.n
-                a, _ = model.predict(s, deterministic=True)
+        for _ in range(n_steps):
+            a, _ = model.predict(s, deterministic=True)
             new_s, _, done, _ = env.step(a)
             env.render()
             s = tuple(new_s)
-
             if done:
                 print("Finished ep")
                 break
@@ -272,6 +262,10 @@ def get_experiments(args, hyperparams):
 if __name__ == "__main__":
     start = time.time()
 
+    # Uncomment to test environment with stable_baselines algorithm or naive agent
+    # run_a2c()
+    # run_always_down()
+
     args = read_args()
     with open("hyperparams.yml") as f:
         hyperparams = yaml.safe_load(f)
@@ -287,6 +281,4 @@ if __name__ == "__main__":
     for func, hyperparams in experiments:
         func(args, hyperparams)
 
-    # run_always_down()
-    # run_a2c()
     print("Time taken:", time.time() - start)
