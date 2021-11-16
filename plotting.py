@@ -34,7 +34,7 @@ def plot_rewards(data, out_dir, task_name, mdp_type, optimal_reward, date):
         plt.axhline(y=optimal_reward, color='k', linestyle='-', label="optimal av. reward")
         # plt.yticks(list(plt.yticks()[0]) + [optimal_reward])
         # Truncate for consistent x-axis
-        plt.xlim(left=max_xmin, right=min_xmax)
+        plt.xlim(left=0, right=min_xmax)
         plt.xlabel(f"Number of {x_name}")
         plt.ylabel("Average Reward")
         plt.legend(loc="lower right")
