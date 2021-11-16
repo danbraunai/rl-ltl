@@ -1,6 +1,0 @@
-0 # initial state
-[2] # terminal state
-(0,0,'!r',ConstantRewardFunction(-0.05))
-(0,1,'r',ConstantRewardFunction(-0.05))
-(1,1,'!f',ConstantRewardFunction(-0.05))
-(1,2,'f',ConstantRewardFunction(1.0))

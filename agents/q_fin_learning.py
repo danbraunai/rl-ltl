@@ -1,12 +1,14 @@
 """
-QT-Learning implementation as in Harada1997 https://www.aaai.org/Papers/AAAI/1997/AAAI97-090.pdf.
+Implementations of Q-learning,
+QT-learning (Harada1997 https://www.aaai.org/Papers/AAAI/1997/AAAI97-090.pdf), QRM-learning,
+QTRM-learning for the finite horizon setting. Adapted from https://github.com/RodrigoToroIcarte/reward_machines/blob/master/reward_machines/rl_agents/qlearning/qlearning.py.
 """
 import random
 from copy import deepcopy
 import numpy as np
 from utils import set_random_seed
 
-class QTLearning:
+class QFinLearning:
     """Initialise QTLearning model, setting all learning params"""
     def __init__(self,
                  env,
@@ -120,8 +122,6 @@ class QTLearning:
                     # Evaluate the current policy
                     policy_info["samples"].append(step)
                     policy_info["updates"].append(updates)
-                    # policy_info["rewards"].append(reward_total / self.eval_freq)
-                    # policy_info["rewards"].append(reward_total / eval_eps)
                     policy_info["rewards"].append(self.eval_policy())
 
                 if done or step == self.total_steps:

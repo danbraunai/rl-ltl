@@ -11,8 +11,8 @@ from envs.frozen_lake import FrozenLakeRMEnv, FrozenLake
 # Uncomment if you wish to test with stable_baselines3. Not used by default due to package size
 # from stable_baselines3 import A2C
 
-from agents.qlearning import QLearning
-from agents.qtlearning import QTLearning
+from agents.q_inf_learning import QInfLearning
+from agents.q_fin_learning import QFinLearning
 import solver
 from reward_machines.rm_environment import RewardMachineEnv, RewardMachineWrapper
 import utils
@@ -127,10 +127,10 @@ def run_q_algo(params, rm_files, map_name, obj_name, out_dir, finite=False):
     )
     rm_env = RewardMachineWrapper(rm_env, params["use_crm"], False, params["gamma"], 1)
     if finite:
-        ql = QTLearning(rm_env, **params)
+        ql = QFinLearning(rm_env, **params)
     else:
-        ql = QLearning(rm_env, **params)
-    # Since starmap returns in any order, we must identify the algorithm
+        ql = QInfLearning(rm_env, **params)
+    # Since starmap returns results in any order, we must identify the algorithm
     return params["alg_name"], ql.learn(), ql.q
 
 def q_experiment(args, params):

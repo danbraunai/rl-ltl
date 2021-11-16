@@ -1,12 +1,12 @@
 """
-Q-Learning implementation.
+Q-Learning and CRM implementation, adapted from https://github.com/RodrigoToroIcarte/reward_machines/blob/master/reward_machines/rl_agents/qlearning/qlearning.py.
 """
 import random
 from copy import deepcopy
 import numpy as np
 from utils import set_random_seed
 
-class QLearning:
+class QInfLearning:
     """Initialise QLearning model, setting all learning params"""
     def __init__(self,
                  env,
@@ -46,10 +46,6 @@ class QLearning:
         self.q = {}
 
     def learn(self):
-        """
-        Run qlearning. Adapted from
-        https://github.com/RodrigoToroIcarte/reward_machines.
-        """
         policy_info = {"samples": [], "updates": [], "rewards": []}
 
         step = 0
@@ -97,8 +93,6 @@ class QLearning:
                     # Evaluate the current policy
                     policy_info["samples"].append(step)
                     policy_info["updates"].append(updates)
-                    # policy_info["rewards"].append(reward_total / self.eval_freq)
-                    # policy_info["rewards"].append(reward_total / eval_eps)
                     policy_info["rewards"].append(self.eval_policy())
                 if done or step == self.total_steps:
                     break

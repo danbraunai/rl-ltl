@@ -15,12 +15,9 @@ def plot_rewards(data, out_dir, task_name, mdp_type, optimal_reward, date):
         # Used for plot truncation
         # Get the smallest of the max xvals.
         min_xmax = 1e8
-        # Get the largest of the min xvals
-        max_xmin = 0
         for i, alg in enumerate(data):
             x_vals = data[alg][x_name]
             min_xmax = min(min_xmax, data[alg][x_name][-1])
-            max_xmin = max(max_xmin, data[alg][x_name][0])
             # Combine rewards from each run element-wise
             rewards = list(zip(*data[alg]["rewards"]))
             quartiles = np.array([np.percentile(s, [25, 50, 75]) for s in rewards])
@@ -32,6 +29,7 @@ def plot_rewards(data, out_dir, task_name, mdp_type, optimal_reward, date):
 
         plt.ylim(bottom=0., top=1.)
         plt.axhline(y=optimal_reward, color='k', linestyle='-', label="optimal av. reward")
+        # Uncomment to add a ytick for the optimal reward (note that it overlaps with other ticks)
         # plt.yticks(list(plt.yticks()[0]) + [optimal_reward])
         # Truncate for consistent x-axis
         plt.xlim(left=0, right=min_xmax)

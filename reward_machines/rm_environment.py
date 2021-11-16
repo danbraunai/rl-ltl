@@ -1,5 +1,6 @@
 """
-Module taken from https://github.com/RodrigoToroIcarte/reward_machines.
+Module taken from https://github.com/RodrigoToroIcarte/reward_machines, with an adjustment to
+_get_crm_experiences to ensure it returns all counterfactual experiences.
 
 These are simple wrappers that will include RMs to any given environment.
 It also keeps track of the RM state as the agent interacts with the envirionment.
@@ -160,24 +161,6 @@ class RewardMachineWrapper(gym.Wrapper):
         done = rm_done or env_done
         rm_next_obs = self.env.get_observation(next_obs, rm_id, next_u_id, done)
         return (rm_obs,action,rm_rew,rm_next_obs,done), next_u_id
-
-    # def _get_crm_experience(self, obs, action, next_obs, env_done, true_props, info):
-    #     """
-    #     Returns a list of counterfactual experiences generated per each RM state.
-    #     Format: [..., (obs, action, r, new_obs, done), ...]
-    #     """
-    #     reachable_states = set()
-    #     experiences = []
-    #     for rm_id, rm in enumerate(self.reward_machines):
-    #         for u_id in rm.get_states():
-    #             exp, next_u = self._get_rm_experience(rm_id, rm, u_id, obs, action, next_obs, env_done, true_props, info)
-    #             reachable_states.add((rm_id,next_u))
-    #             if self.valid_states is None or (rm_id,u_id) in self.valid_states:
-    #                 # We only add experience that are possible (i.e., it is possible to reach state u_id given the previous experience)
-    #                 experiences.append(exp)
-
-    #     self.valid_states = reachable_states
-    #     return experiences
 
     def _get_crm_experience(self, obs, action, next_obs, env_done, true_props, info):
         """
