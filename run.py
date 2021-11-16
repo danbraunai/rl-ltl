@@ -143,45 +143,67 @@ def run_q_algo(params, rm_files, map_name, obj_name, out_dir, finite=False):
     # Since starmap returns in any order, we must identify the algorithm
     return params["alg_name"], ql.learn(), ql.q
 
-def fin_horizon_experiment(args, params):
+def q_experiment(args, params):
     seed = args.seed
     task_num = params["task_num"]
     rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
     map_name = "5x5"
     obj_name = f"objects_t{task_num}"
     out_dir = args.out_dir
+    horizon_type = "finite" if params["horizon"] is not None else "infinite"
 
     optimal_vals = value_iteration_experiment(args, {
         "task_num": task_num, "step_penalty": 0, "horizon": params["horizon"],
         "gammas": [params["gamma"]], "slip": params["slip"]
     })
-    # Get the optimal value corresponding to the first env and RM state at the horizon.
-    # This corresponds to the probability of completing the task and the optimal expected reward
-    # (assuming the only initial state is at (0,0))
-    optimal_reward = optimal_vals[-1][0][0, 0]
+    if horizon_type == "finite":
+        # Optimal reward for the horizon step, the initial env state (0,0) and RM state (0).
+        # This corresponds to the probability of completing the task and the optimal expected
+        # reward over an episode.
+        optimal_reward = optimal_vals[params["horizon"]-1][0][0, 0]
+    else:
+        # Without horizon, get the optimal reward from the initial env state (0,0) and RM state (0)
+        optimal_reward = optimal_vals[0][0, 0]
 
     date = args.preload_date or TODAY
+
+    # See if we need to run the experiments from scratch
     if not args.preload_date:
         all_params = []
-        for use_t in [True, False]:
+        if horizon_type == "finite":
+            # Finite horizon experiment, running Q-, QT-, QRM-, QTRM- learning
+            for use_t in [True, False]:
+                for use_crm in [True, False]:
+                    alg_prefix = "Q"
+                    if use_t:
+                        alg_prefix += "T"
+                    if use_crm:
+                        alg_prefix += "RM"
+                    alg_name = alg_prefix + "-learning"
+                    for i in range(params["num_runs"]):
+                        # Iterate on the seed if the user provided one
+                        seed = seed + 1 if seed is not None else None
+                        # Add the run specific parameters
+                        options = {
+                            "seed": seed, "alg_name": alg_name, "use_crm": use_crm, "use_t": use_t,
+                            **params
+                        }
+                        all_params.append(options)
+        else:
+            # Infinite horizon experiment, running CRM and Q-learning
             for use_crm in [True, False]:
-                alg_prefix = "Q"
-                if use_t:
-                    alg_prefix += "T"
-                if use_crm:
-                    alg_prefix += "RM"
-                alg_name = alg_prefix + "-learning"
+                alg_name = "CRM" if use_crm else "Q-learning"
                 for i in range(params["num_runs"]):
                     # Iterate on the seed if the user provided one
                     seed = seed + 1 if seed is not None else None
                     # Add the run specific parameters
                     options = {
-                        "seed": seed, "alg_name": alg_name, "use_crm": use_crm, "use_t": use_t,
+                        "seed": seed, "alg_name": alg_name, "use_crm": use_crm, "use_t": False,
                         **params
                     }
                     all_params.append(options)
 
-        print(f"Running task {task_num} in finite horizon setting")
+        print(f"Running task {task_num} with horizon {params['horizon']}")
         q_args = [[run_params, rm_files, map_name, obj_name, out_dir] for run_params in all_params]
         if args.num_processes > 1:
             with multiprocessing.Pool(multiprocessing.cpu_count()-1) as pool:
@@ -192,67 +214,14 @@ def fin_horizon_experiment(args, params):
         results_dict = utils.combine_results(results)
         
         # Save results
-        with open(f"{out_dir}/fin_t{task_num}_{date}.json", "w") as f:
+        with open(f"{out_dir}/{horizon_type[:3]}_t{task_num}_{date}.json", "w") as f:
             json.dump(results_dict, f, indent=4)
 
-    with open(f"{out_dir}/fin_t{task_num}_{date}.json") as f:
+    with open(f"{out_dir}/{horizon_type[:3]}_t{task_num}_{date}.json") as f:
         results_dict = json.load(f)
     
 
-    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "finite", optimal_reward, date)
-
-def inf_horizon_experiment(args, params):
-    seed = args.seed
-    task_num = params["task_num"]
-    rm_files = [f"./envs/rm_t{task_num}_frozen_lake.txt"]
-    map_name = "5x5"
-    obj_name = f"objects_t{task_num}"
-    out_dir = args.out_dir
-
-    optimal_vals = value_iteration_experiment(args, {
-        "task_num": task_num, "step_penalty": 0, "horizon": params["horizon"],
-        "gammas": [params["gamma"]], "slip": params["slip"]
-    })
-    # Get the optimal value corresponding to the first env and RM state. This corresponds to the
-    # probability of completing the task and the optimal expected reward
-    # (assuming the only initial state is at (0,0))
-    optimal_reward = optimal_vals[0][0, 0]
-
-    date = args.preload_date or TODAY
-    # If user didn't provide a args.preload_date, we run from scratch (instead of loading results)
-    if not args.preload_date:
-        all_params = []
-        for use_crm in [True, False]:
-            alg_name = "CRM" if use_crm else "Q-learning"
-            for i in range(params["num_runs"]):
-                # Iterate on the seed if the user provided one
-                seed = seed + 1 if seed is not None else None
-                # Add the run specific parameters
-                options = {
-                    "seed": seed, "alg_name": alg_name, "use_crm": use_crm, "use_t": False,
-                    **params
-                }
-                all_params.append(options)
-
-        print(f"Running task {task_num} in infinite horizon setting")
-        # run_q_algo(options, rm_files, map_name, obj_name, out_dir, False)
-        q_args = [[run_params, rm_files, map_name, obj_name, out_dir] for run_params in all_params]
-        if args.num_processes > 1:
-            with multiprocessing.Pool(multiprocessing.cpu_count()-1) as pool:
-                results = pool.starmap(run_q_algo, q_args)
-        else:
-            results = [run_q_algo(*args) for args in q_args]
-
-        results_dict = utils.combine_results(results)
-
-        # Save results
-        with open(f"{out_dir}/inf_t{task_num}_{date}.json", "w") as f:
-            json.dump(results_dict, f, indent=4)
-
-    with open(f"{out_dir}/inf_t{task_num}_{date}.json") as f:
-        results_dict = json.load(f)
-
-    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", "infinite", optimal_reward, date)
+    plotting.plot_rewards(results_dict, out_dir, f"Task{task_num}", horizon_type, optimal_reward, date)
 
 def get_experiments(args, hyperparams):
     """
@@ -285,7 +254,8 @@ def get_experiments(args, hyperparams):
         # Get the function corresponding to the alg_type and horizon_type
         func_str = ""
         if alg_type[0] == "q":
-            func_str = f"{horizon_type}_horizon_experiment"
+            # func_str = f"{horizon_type}_horizon_experiment"
+            func_str = f"q_experiment"
         elif alg_type[:2] == "vi":
             func_str = "value_iteration_experiment"
         if func_str not in global_vars:
@@ -293,9 +263,8 @@ def get_experiments(args, hyperparams):
 
         func = global_vars[func_str]
         # Add the task number to the hyperparams
-        hyperparams[args.params][exp_name]["task_num"] = task_num
-        # hyperparams = {"task_num": task_num, **hyperparams[args.params][exp_name]}
-        experiments.append((func, hyperparams[args.params][exp_name]))
+        params = {"task_num": task_num, **hyperparams[args.params][exp_name]}
+        experiments.append((func, params))
     return experiments
 
 
